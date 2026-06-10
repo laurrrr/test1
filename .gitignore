@@ -9,6 +9,13 @@ android/app/src/main/assets/www/
 *.apk
 *.aab
 
+# iOS / Xcode
+ios/build/
+ios/DerivedData/
+ios/WiFiMap.xcodeproj/xcuserdata/
+ios/WiFiMap.xcodeproj/project.xcworkspace/xcuserdata/
+*.ipa
+
 # Node (if ever added)
 node_modules/
 

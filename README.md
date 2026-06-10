@@ -54,6 +54,40 @@ generating a visual Wi-Fi Quality Certificate for their listings.
 - **Persistence** — sessions are auto-saved to `localStorage` and can be
   resumed from the dashboard.
 
+## iOS app
+
+The `ios/` directory contains a native Xcode project (SwiftUI + WKWebView)
+that wraps the same web app and exposes the same `window.WifiNative` bridge
+via a WKScriptMessageHandler shim. **No estimation** — but note that iOS
+exposes far less Wi-Fi data through public APIs than Android:
+
+| Data | iOS (public API) |
+|---|---|
+| SSID / BSSID | ✅ real, via `NEHotspotNetwork.fetchCurrent` |
+| Security (secured/open) | ✅ real |
+| Speeds, ping, jitter, ISP | ✅ real, via Cloudflare (same as everywhere) |
+| RSSI, channel, band, width | ❌ **no public API on iOS** — omitted, never estimated |
+
+The bridge also routes certificate downloads to the iOS print dialog
+(Save to Files as PDF).
+
+### Building the iOS app
+
+1. Open `ios/WiFiMap.xcodeproj` in **Xcode 15+**.
+2. In *Signing & Capabilities*, pick your team (the **Access WiFi
+   Information** capability is already configured via the entitlements
+   file — Xcode registers it with your App ID automatically).
+3. Press **Run** on a real device (the Simulator has no Wi-Fi hardware,
+   so SSID/BSSID are only returned on-device).
+
+A "Copy Web Assets" build phase copies `index.html` & friends from the
+repo root into the app bundle, keeping the web app the single source of
+truth.
+
+> **Permissions:** iOS only reveals the SSID/BSSID to apps with location
+> permission and the Wi-Fi entitlement. The app asks at launch; if denied,
+> scans omit the radio fields and say so.
+
 ## Android app (APK)
 
 The `android/` directory contains a complete native Android project that
