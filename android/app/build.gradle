@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.wifimap.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.wifimap.app"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Debug signing so `assembleRelease` produces an installable APK
+            // out of the box; replace with a real keystore for Play Store.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity-ktx:1.9.2'
+    implementation 'androidx.webkit:webkit:1.12.0'
+}
+
+// The web app at the repo root is the single source of truth; copy it into
+// the WebView assets before every build.
+tasks.register('copyWebAssets', Copy) {
+    from(rootDir.parentFile) {
+        include 'index.html', 'manifest.webmanifest', 'sw.js', 'icon.svg', 'icon-maskable.svg'
+    }
+    into layout.projectDirectory.dir('src/main/assets/www')
+}
+tasks.named('preBuild') { dependsOn 'copyWebAssets' }

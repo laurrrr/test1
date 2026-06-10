@@ -1,5 +1,5 @@
 /* WiFiMap service worker — app-shell caching for offline use. */
-const CACHE = 'wifimap-v3';
+const CACHE = 'wifimap-v4';
 const SHELL = [
   './',
   './index.html',

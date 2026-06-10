@@ -776,6 +776,33 @@ function radioDetailsAt(x, y) {
   };
 }
 
+/* ---------- native bridge (Android WebView) ---------- */
+/* Inside the Android app, MainActivity injects `window.WifiNative`, which
+   exposes real radio telemetry from WifiManager. When present, scans use
+   measured data and no estimation happens. */
+const IS_NATIVE = !!window.WifiNative;
+
+function nativeWifiInfo() {
+  if (!IS_NATIVE) return null;
+  try {
+    const d = JSON.parse(window.WifiNative.getWifiInfo());
+    if (d && d.available) return d;
+    return d && d.reason ? { failed: true, reason: d.reason } : null;
+  } catch (e) { return null; }
+}
+
+/* window.print() is a no-op in Android WebView; the bridge routes it to the
+   system print dialog instead. */
+function doPrint() {
+  try {
+    if (IS_NATIVE && typeof window.WifiNative.printPage === 'function') {
+      window.WifiNative.printPage();
+      return;
+    }
+  } catch (e) { /* fall through to browser print */ }
+  window.print();
+}
+
 /* Browser-reported link info (Network Information API, where supported). */
 function deviceLink() {
   const c = navigator.connection;
@@ -788,21 +815,28 @@ function deviceLink() {
 }
 
 /* Shared key/value grid for the speedtest result and pin details modals.
-   Radio fields get an "est." badge on live scans, where the speeds are real
-   but the radio data is modeled. */
+   Radio fields are real when captured through the native Android bridge
+   (badged "✓"); in the browser they come from the signal model and live
+   scans badge them "est." since browsers cannot read Wi-Fi radio data. */
 function scanDetailsHtml(p) {
-  const est = p.source === 'live'
-    ? ' <span class="text-[9px] text-slate-600" title="Browsers cannot read Wi-Fi radio data — estimated from the signal model">est.</span>'
-    : '';
-  const sigPct = p.rssi != null ? clamp(Math.round(2 * (p.rssi + 100)), 0, 100) : null;
+  const est = p.radioReal
+    ? ' <span class="text-[9px] text-emerald-500" title="Measured on-device via Android WifiManager">✓</span>'
+    : (p.source === 'live'
+      ? ' <span class="text-[9px] text-slate-600" title="Browsers cannot read Wi-Fi radio data — estimated from the signal model">est.</span>'
+      : '');
+  const sigPct = p.sigPct != null ? p.sigPct : (p.rssi != null ? clamp(Math.round(2 * (p.rssi + 100)), 0, 100) : null);
   const rows = [];
-  rows.push(['Network (SSID)', escapeHtml(state.ssid || 'Home Wi-Fi'), '']);
+  rows.push(['Network (SSID)', escapeHtml(state.ssid || 'Home Wi-Fi'), p.radioReal ? est : '']);
   if (p.jitter != null) rows.push(['Jitter', p.jitter + ' ms', '']);
   if (p.rssi != null) rows.push(['Signal strength', `${p.rssi} dBm (${sigPct}%)`, est]);
   if (p.band) rows.push(['Band', p.band, est]);
   if (p.channel) rows.push(['Channel', p.channel, est]);
   if (p.width) rows.push(['Channel width', p.width, est]);
   if (p.security) rows.push(['Security', p.security, est]);
+  if (p.linkSpeed) rows.push(['Link speed', p.linkSpeed + ' Mbps', est]);
+  if (p.standard) rows.push(['Wi-Fi standard', escapeHtml(p.standard), est]);
+  if (p.freq) rows.push(['Frequency', p.freq + ' MHz', est]);
+  if (p.bssid) rows.push(['BSSID (AP)', `<span class="font-mono">${escapeHtml(p.bssid)}</span>`, est]);
   if (p.isp) rows.push(['ISP', escapeHtml(p.isp), '']);
   if (p.server) rows.push(['Test server', escapeHtml(p.server), '']);
   if (p.netType) rows.push(['Device link', escapeHtml(p.netType), '']);
@@ -1518,9 +1552,39 @@ function runTestAnimation(target) {
 }
 
 function finishTest(target) {
+  // Radio details: real (native Android bridge) when available, modeled otherwise.
+  let radio;
+  const native = nativeWifiInfo();
+  if (native && !native.failed) {
+    radio = {
+      rssi: native.rssi,
+      sigPct: native.signalPercent != null ? clamp(native.signalPercent, 0, 100) : undefined,
+      band: native.band || undefined,
+      channel: native.channel > 0 ? native.channel : undefined,
+      width: native.width || undefined,
+      security: native.security || undefined,
+      bssid: native.bssid || undefined,
+      linkSpeed: native.linkSpeedMbps > 0 ? native.linkSpeedMbps : undefined,
+      standard: native.standard || undefined,
+      freq: native.frequencyMhz > 0 ? native.frequencyMhz : undefined,
+      radioReal: true,
+    };
+    if (native.ssid && native.ssid !== state.ssid) {
+      state.ssid = native.ssid;
+      const si = $('ssid-input');
+      if (si) si.value = native.ssid;
+    }
+  } else {
+    if (native && native.failed) {
+      toast(native.reason === 'permission'
+        ? 'Grant location permission for real Wi-Fi data — using estimates'
+        : 'Wi-Fi data unavailable (' + native.reason + ') — using estimates');
+    }
+    radio = radioDetailsAt(currentTest.x, currentTest.y);
+  }
   const extras = {
     jitter: target.jitter != null ? target.jitter : Math.max(1, Math.round(rand(1, 5) + target.ping * 0.15)),
-    ...radioDetailsAt(currentTest.x, currentTest.y),
+    ...radio,
     netType: deviceLink(),
   };
   if (currentTest.source === 'live' && cfMeta) {
@@ -1553,8 +1617,8 @@ function closeSpeedtest(save) {
   if (liveAbort) liveAbort.abort();
   if (save && currentTest && currentTest.done) {
     const room = $('st-room').value.trim() || `Spot ${state.pins.length + 1}`;
-    const data = (({ ping, down, up, jitter, rssi, band, channel, width, security, isp, server, netType, source }) =>
-      ({ ping, down, up, jitter, rssi, band, channel, width, security, isp, server, netType, source }))(currentTest);
+    const data = (({ ping, down, up, jitter, rssi, sigPct, band, channel, width, security, bssid, linkSpeed, standard, freq, radioReal, isp, server, netType, source }) =>
+      ({ ping, down, up, jitter, rssi, sigPct, band, channel, width, security, bssid, linkSpeed, standard, freq, radioReal, isp, server, netType, source }))(currentTest);
     if (currentTest.replaceId) {
       const pin = state.pins.find(p => p.id === currentTest.replaceId);
       if (pin) Object.assign(pin, { room, ...data });
@@ -1651,8 +1715,10 @@ function renderCertificate() {
   $('cert-avg-ping').textContent = avgPing;
 
   const allLive = pins.length > 0 && pins.every(p => p.source === 'live');
-  $('cert-method').innerHTML = `<i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> ${allLive
-    ? 'Measured on-site via Cloudflare’s global speed test network.'
+  const allNative = pins.length > 0 && pins.every(p => p.radioReal);
+  $('cert-method').innerHTML = `<i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> ${
+    allNative && allLive ? 'Speeds via Cloudflare · radio telemetry captured on-device.'
+    : allLive ? 'Measured on-site via Cloudflare’s global speed test network.'
     : 'Measured on-site with WiFiMap signal mapping technology.'}`;
 
   // stars
@@ -1708,7 +1774,7 @@ function renderCertificate() {
 
 /* ---------- checkout ---------- */
 function onDownloadClick() {
-  if (state.paid || state.adminMode) { window.print(); return; }
+  if (state.paid || state.adminMode) { doPrint(); return; }
   $('checkout-form').classList.remove('hidden');
   $('checkout-processing').classList.add('hidden');
   $('checkout-success').classList.add('hidden');
@@ -1731,7 +1797,7 @@ function processPayment() {
       renderCertificate();
       persist();
       toast('✓ Official certificate unlocked');
-      setTimeout(() => window.print(), 700);
+      setTimeout(() => doPrint(), 700);
     }, 1400);
   }, 1800);
 }
@@ -1827,13 +1893,14 @@ $('btn-install').addEventListener('click', async () => {
   $('btn-install').classList.add('hidden');
 });
 
-// Service worker
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+// Service worker (browser/PWA only — the Android shell serves bundled assets itself)
+if (!IS_NATIVE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 // Init
 checkResumeBanner();
+if (IS_NATIVE) toast('Native Android mode — collecting real Wi-Fi radio data');
 updateAdminChip();
 if (location.hash === '#admin') showAdmin();
 window.addEventListener('hashchange', () => { if (location.hash === '#admin') showAdmin(); });

@@ -1,0 +1,16 @@
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/app/src/main/assets/www/
+*.apk
+*.aab
+
+# Node (if ever added)
+node_modules/
+
+# OS
+.DS_Store

@@ -54,6 +54,38 @@ generating a visual Wi-Fi Quality Certificate for their listings.
 - **Persistence** — sessions are auto-saved to `localStorage` and can be
   resumed from the dashboard.
 
+## Android app (APK)
+
+The `android/` directory contains a complete native Android project that
+wraps the web app in a WebView and injects a **native Wi-Fi bridge**
+(`window.WifiNative`, backed by Android's `WifiManager`). Inside the APK
+there is **no estimation** — scans record the device's real radio data:
+
+- SSID and BSSID of the connected access point
+- RSSI (dBm) and system-calculated signal percentage
+- Frequency (MHz), channel, band (2.4 / 5 / 6 GHz) and channel width
+- Negotiated link speed (plus TX/RX link speeds on Android 10+)
+- Wi-Fi standard (Wi-Fi 4/5/6/7, Android 11+) and security (WPA2/WPA3…)
+
+Real entries are badged with a green ✓ in the scan details. The bridge also
+routes certificate downloads to Android's print-to-PDF dialog.
+
+### Building the APK
+
+1. Open the `android/` folder in **Android Studio** (Hedgehog or newer).
+   It will set up the Gradle wrapper and sync automatically.
+2. Press **Run** to install on a connected device, or build an APK with
+   **Build → Build App Bundle(s)/APK(s) → Build APK(s)**
+   (CLI: `gradle assembleDebug` — output in `app/build/outputs/apk/`).
+
+The build copies `index.html` & friends from the repo root into the app's
+assets, so the web app remains the single source of truth.
+
+> **Permissions:** Android only reveals SSID/RSSI/scan data to apps holding
+> location permission (`ACCESS_FINE_LOCATION`, plus `NEARBY_WIFI_DEVICES`
+> on Android 13+) with device location services enabled. The app asks at
+> launch; if denied, scans fall back to estimates and say so.
+
 ## Tech stack
 
 - Semantic HTML5 + vanilla JavaScript (no build step)
