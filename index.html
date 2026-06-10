@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>WiFiMap — Certified Airbnb Wi-Fi Signal Mapper</title>
+  <meta name="description" content="Map your Wi-Fi. Certify your Speed. Attract Digital Nomads. Generate a visual Wi-Fi quality certificate for your Airbnb or co-working space." />
+  <meta name="theme-color" content="#020617" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+          keyframes: {
+            pinDrop: { '0%': { transform: 'translate(-50%,-50%) scale(0) ', opacity: 0 }, '70%': { transform: 'translate(-50%,-50%) scale(1.25)' }, '100%': { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 } },
+            fadeUp: { '0%': { transform: 'translateY(12px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
+            pulseRing: { '0%': { transform: 'translate(-50%,-50%) scale(.6)', opacity: .6 }, '100%': { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 } },
+          },
+          animation: {
+            pinDrop: 'pinDrop .35s cubic-bezier(.2,.9,.3,1.4) both',
+            fadeUp: 'fadeUp .3s ease-out both',
+            pulseRing: 'pulseRing 1.6s ease-out infinite',
+          }
+        }
+      }
+    };
+  </script>
+  <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { -webkit-tap-highlight-color: transparent; }
+    .map-surface { touch-action: manipulation; cursor: crosshair; }
+    .map-surface.locked { cursor: not-allowed; }
+    .pin-marker { cursor: pointer; }
+
+    /* Certificate watermark */
+    .watermark { position: absolute; inset: -10%; display: flex; flex-wrap: wrap; align-content: space-around; justify-content: space-around; gap: 3rem; transform: rotate(-24deg) scale(1.25); pointer-events: none; overflow: hidden; z-index: 30; }
+    .watermark span { font-weight: 800; font-size: 2rem; letter-spacing: .2em; color: rgba(2, 6, 23, .08); white-space: nowrap; user-select: none; }
+
+    /* Modal transitions */
+    .modal-backdrop { backdrop-filter: blur(6px); }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    @media print {
+      body { background: #fff !important; }
+      body * { visibility: hidden; }
+      #certificate-card, #certificate-card * { visibility: visible; }
+      #certificate-card { position: absolute; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none !important; border-radius: 0 !important; }
+      #certificate-card .watermark { display: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-cyan-500/30">
+
+<div id="app" class="flex min-h-screen flex-col">
+
+  <!-- ============ HEADER ============ -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur no-print">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <button onclick="goHome()" class="flex items-center gap-2.5 text-left">
+        <span class="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-500 shadow-lg shadow-cyan-500/20">
+          <i data-lucide="wifi" class="h-5 w-5 text-white"></i>
+        </span>
+        <span>
+          <span class="block text-sm font-bold leading-none tracking-tight">WiFiMap</span>
+          <span class="block text-[11px] text-slate-400">Certified Wi-Fi Signal Mapper</span>
+        </span>
+      </button>
+      <div class="flex items-center gap-2">
+        <span id="header-status" class="hidden items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300 sm:flex">
+          <i data-lucide="signal" class="h-3.5 w-3.5 text-emerald-400"></i><span id="header-status-text">Dashboard</span>
+        </span>
+        <button id="btn-install" class="hidden items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20">
+          <i data-lucide="download" class="h-3.5 w-3.5"></i> Install App
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-10">
+
+    <!-- ============ VIEW: WELCOME ============ -->
+    <section id="view-welcome">
+      <div class="text-center">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+          <i data-lucide="badge-check" class="h-3.5 w-3.5"></i> Trusted by hosts &amp; co-working spaces
+        </span>
+        <h1 class="mx-auto mt-4 max-w-3xl text-3xl font-extrabold tracking-tight sm:text-5xl">
+          Map your Wi-Fi. <span class="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Certify your Speed.</span><br class="hidden sm:block" /> Attract Digital Nomads.
+        </h1>
+        <p class="mx-auto mt-4 max-w-xl text-sm text-slate-400 sm:text-base">
+          Walk through your property, tap to run speed tests room by room, and generate a beautiful,
+          shareable <strong class="text-slate-200">Wi-Fi Quality Certificate</strong> for your listing.
+        </p>
+        <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <a href="#start-options" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110">
+            <i data-lucide="map-pin-plus" class="h-4 w-4"></i> Start New Floor Plan
+          </a>
+          <button onclick="startTemplate(true)" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500">
+            <i data-lucide="sparkles" class="h-4 w-4 text-amber-400"></i> Try Instant Demo
+          </button>
+        </div>
+      </div>
+
+      <!-- Resume banner (shown if a saved session exists) -->
+      <div id="resume-banner" class="mx-auto mt-8 hidden max-w-2xl items-center justify-between gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4">
+        <div class="flex items-center gap-3">
+          <i data-lucide="history" class="h-5 w-5 shrink-0 text-cyan-400"></i>
+          <p class="text-sm text-slate-300">You have a saved mapping session.<span id="resume-meta" class="block text-xs text-slate-500"></span></p>
+        </div>
+        <div class="flex shrink-0 gap-2">
+          <button onclick="resumeSession()" class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:brightness-110">Resume</button>
+          <button onclick="discardSession()" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Discard</button>
+        </div>
+      </div>
+
+      <!-- Start options -->
+      <div id="start-options" class="mt-12 grid gap-4 sm:grid-cols-2">
+        <button onclick="document.getElementById('file-input').click()" class="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-left transition hover:border-cyan-500/50 hover:bg-slate-900">
+          <span class="grid h-12 w-12 place-items-center rounded-xl bg-cyan-500/10 text-cyan-400 transition group-hover:scale-110">
+            <i data-lucide="image-plus" class="h-6 w-6"></i>
+          </span>
+          <h3 class="mt-4 text-lg font-bold">Upload your floor plan</h3>
+          <p class="mt-1 text-sm text-slate-400">Use a photo or image of your actual floor plan (PNG, JPG). You’ll see a preview before mapping.</p>
+          <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-cyan-400">Choose image <i data-lucide="arrow-right" class="h-4 w-4"></i></span>
+        </button>
+        <button onclick="startTemplate(false)" class="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-left transition hover:border-emerald-500/50 hover:bg-slate-900">
+          <span class="grid h-12 w-12 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400 transition group-hover:scale-110">
+            <i data-lucide="layout-template" class="h-6 w-6"></i>
+          </span>
+          <h3 class="mt-4 text-lg font-bold">Use a default template</h3>
+          <p class="mt-1 text-sm text-slate-400">Start instantly with a standard 3-room apartment layout — living room, bedroom, workspace, kitchen &amp; bath.</p>
+          <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-400">Start mapping <i data-lucide="arrow-right" class="h-4 w-4"></i></span>
+        </button>
+      </div>
+      <input id="file-input" type="file" accept="image/*" class="hidden" />
+
+      <!-- Upload preview -->
+      <div id="upload-preview" class="mx-auto mt-6 hidden max-w-2xl animate-fadeUp rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+        <div class="flex items-center justify-between">
+          <h4 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="file-image" class="h-4 w-4 text-cyan-400"></i> Floor plan preview</h4>
+          <button onclick="cancelUpload()" class="text-slate-500 hover:text-slate-300"><i data-lucide="x" class="h-4 w-4"></i></button>
+        </div>
+        <img id="upload-preview-img" alt="Floor plan preview" class="mt-3 max-h-72 w-full rounded-xl border border-slate-800 object-contain bg-slate-950" />
+        <button onclick="startUploaded()" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-5 py-2.5 text-sm font-bold text-slate-950 hover:brightness-110">
+          <i data-lucide="map-pin" class="h-4 w-4"></i> Use this floor plan
+        </button>
+      </div>
+
+      <!-- Value props -->
+      <div class="mt-14 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+          <i data-lucide="gauge" class="h-6 w-6 text-cyan-400"></i>
+          <h4 class="mt-3 font-bold">Room-by-room speed tests</h4>
+          <p class="mt-1 text-sm text-slate-400">Tap anywhere on the plan to run a live test — ping, download &amp; upload at that exact spot.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+          <i data-lucide="map" class="h-6 w-6 text-emerald-400"></i>
+          <h4 class="mt-3 font-bold">Visual coverage heat-pins</h4>
+          <p class="mt-1 text-sm text-slate-400">Color-coded pins instantly show guests where the connection is excellent, good or weak.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+          <i data-lucide="award" class="h-6 w-6 text-amber-400"></i>
+          <h4 class="mt-3 font-bold">Listing-ready certificate</h4>
+          <p class="mt-1 text-sm text-slate-400">Export a verified Wi-Fi certificate with star rating — perfect for Airbnb photos &amp; guest guides.</p>
+        </div>
+      </div>
+
+      <!-- Social proof / mock stats -->
+      <div class="mt-10 grid grid-cols-3 gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-5 text-center">
+        <div><p class="text-2xl font-extrabold text-cyan-400">12,400+</p><p class="text-xs text-slate-500">Properties certified</p></div>
+        <div><p class="text-2xl font-extrabold text-emerald-400">96 Mbps</p><p class="text-xs text-slate-500">Average certified speed</p></div>
+        <div><p class="text-2xl font-extrabold text-amber-400">4.8 ★</p><p class="text-xs text-slate-500">Host satisfaction</p></div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: MAPPING ============ -->
+    <section id="view-mapping" class="hidden">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button onclick="goHome()" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-100"><i data-lucide="arrow-left" class="h-4 w-4"></i></button>
+          <div>
+            <h2 class="text-lg font-bold leading-tight">Interactive coverage map</h2>
+            <p class="text-xs text-slate-400">Tap anywhere on the floor plan to drop a pin &amp; run a speed test.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="pin-counter" class="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300">0 pins</span>
+          <button id="btn-certificate" onclick="generateCertificate()" disabled
+            class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0">
+            <i data-lucide="award" class="h-4 w-4"></i> Generate Wi-Fi Certificate
+          </button>
+        </div>
+      </div>
+
+      <div id="locked-banner" class="mb-4 hidden items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+        <p class="flex items-center gap-2 text-sm text-amber-300"><i data-lucide="lock" class="h-4 w-4"></i> Certificate generated — map editing is locked.</p>
+        <div class="flex gap-2">
+          <button onclick="showCertificate()" class="rounded-lg bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/30">View certificate</button>
+          <button onclick="unlockEditing()" class="rounded-lg border border-amber-500/40 px-3 py-1 text-xs text-amber-300 hover:bg-amber-500/10">Unlock &amp; edit</button>
+        </div>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-[1fr_280px]">
+        <!-- Map -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-4">
+          <div id="map-wrap" class="map-surface relative select-none overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+            <div id="plan-holder"></div>
+            <div id="pin-layer" class="absolute inset-0"></div>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400">
+            <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-emerald-500"></span> 100+ Mbps — Excellent (4K / remote work)</span>
+            <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-amber-500"></span> 30–99 Mbps — Good (general use)</span>
+            <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500"></span> &lt;30 Mbps — Poor connection</span>
+          </div>
+        </div>
+
+        <!-- Sidebar: tested rooms -->
+        <aside class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="list-checks" class="h-4 w-4 text-cyan-400"></i> Tested locations</h3>
+          <div id="room-list" class="mt-3 space-y-2"></div>
+          <p id="room-list-empty" class="mt-3 rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-500">
+            No tests yet.<br/>Walk to a room and tap its position on the map.
+          </p>
+          <div class="mt-4 rounded-xl bg-slate-950/70 p-3 text-xs text-slate-400">
+            <p class="flex items-center gap-1.5 font-semibold text-slate-300"><i data-lucide="lightbulb" class="h-3.5 w-3.5 text-amber-400"></i> Pro tip</p>
+            <p class="mt-1">Test at least <strong class="text-slate-200">3 spots</strong> (e.g. Living Room, Bedroom, Workspace) to unlock your certificate.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: CERTIFICATE ============ -->
+    <section id="view-certificate" class="hidden">
+      <div class="no-print mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button onclick="showMapping()" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-100"><i data-lucide="arrow-left" class="h-4 w-4"></i></button>
+          <div>
+            <h2 class="text-lg font-bold leading-tight">Your Wi-Fi Quality Certificate</h2>
+            <p class="text-xs text-slate-400">Editing is locked. Personalize, then download the official PDF.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-download" onclick="onDownloadClick()" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-110">
+            <i data-lucide="file-down" class="h-4 w-4"></i> <span id="btn-download-label">Download Official PDF ($5)</span>
+          </button>
+          <button onclick="unlockEditing()" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:border-slate-500">
+            <i data-lucide="lock-open" class="h-4 w-4"></i> Unlock &amp; edit
+          </button>
+        </div>
+      </div>
+
+      <div class="no-print mx-auto mb-5 max-w-3xl">
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Property name</label>
+        <input id="property-name" type="text" value="Cozy Downtown Apartment" placeholder="e.g. Cozy Downtown Apartment"
+          class="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-100 outline-none ring-cyan-500/40 placeholder:text-slate-600 focus:border-cyan-500 focus:ring-2" />
+      </div>
+
+      <!-- The certificate itself (white = print-ready) -->
+      <div id="certificate-card" class="relative mx-auto max-w-3xl overflow-hidden rounded-2xl bg-white text-slate-900 shadow-2xl shadow-cyan-500/10">
+        <div id="cert-watermark" class="watermark"></div>
+
+        <!-- Cert header -->
+        <div class="bg-gradient-to-r from-cyan-600 to-emerald-600 px-6 py-5 text-white sm:px-8">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="grid h-11 w-11 place-items-center rounded-xl bg-white/15">
+                <i data-lucide="wifi" class="h-6 w-6"></i>
+              </span>
+              <div>
+                <p class="text-[11px] font-bold uppercase tracking-[.25em] text-white/80">WiFiMap Certification</p>
+                <h3 class="text-xl font-extrabold leading-tight sm:text-2xl">Wi-Fi Quality Certificate</h3>
+              </div>
+            </div>
+            <div class="hidden text-right sm:block">
+              <p class="text-[11px] uppercase tracking-wider text-white/70">Certificate ID</p>
+              <p id="cert-id" class="font-mono text-sm font-bold">WFM-0000-0000</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-6 sm:px-8">
+          <!-- Property + badge row -->
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Certified property</p>
+              <h4 id="cert-property" class="mt-0.5 text-2xl font-extrabold tracking-tight text-slate-900">Cozy Downtown Apartment</h4>
+              <p class="mt-1 text-sm text-slate-500">Certified on <span id="cert-date" class="font-semibold text-slate-700">—</span></p>
+              <div id="cert-stars" class="mt-2 flex items-center gap-1"></div>
+            </div>
+            <div class="flex flex-col items-center gap-1 rounded-2xl border-2 border-emerald-500 bg-emerald-50 px-5 py-3 text-center">
+              <i data-lucide="shield-check" class="h-8 w-8 text-emerald-600"></i>
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 leading-tight">Verified<br/>High-Speed Wi-Fi</p>
+            </div>
+          </div>
+
+          <!-- Summary stats -->
+          <div class="mt-5 grid grid-cols-3 gap-3">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Avg download</p>
+              <p class="text-xl font-extrabold text-slate-900"><span id="cert-avg-down">—</span><span class="text-xs font-semibold text-slate-500"> Mbps</span></p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Avg upload</p>
+              <p class="text-xl font-extrabold text-slate-900"><span id="cert-avg-up">—</span><span class="text-xs font-semibold text-slate-500"> Mbps</span></p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Avg ping</p>
+              <p class="text-xl font-extrabold text-slate-900"><span id="cert-avg-ping">—</span><span class="text-xs font-semibold text-slate-500"> ms</span></p>
+            </div>
+          </div>
+
+          <!-- Map snapshot -->
+          <div class="mt-5">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Coverage map</p>
+            <div id="cert-map" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100"></div>
+          </div>
+
+          <!-- Per-room table -->
+          <div class="mt-5 overflow-x-auto">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Speed by location</p>
+            <table class="w-full min-w-[480px] text-sm">
+              <thead>
+                <tr class="border-b-2 border-slate-200 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <th class="py-2 pr-2">#</th>
+                  <th class="py-2 pr-2">Room / Location</th>
+                  <th class="py-2 pr-2 text-right">Ping</th>
+                  <th class="py-2 pr-2 text-right">Download</th>
+                  <th class="py-2 pr-2 text-right">Upload</th>
+                  <th class="py-2 text-right">Quality</th>
+                </tr>
+              </thead>
+              <tbody id="cert-table"></tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs text-slate-500">
+            <p class="flex items-center gap-1.5"><i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> Measured on-site with WiFiMap signal mapping technology.</p>
+            <p class="font-mono" id="cert-id-footer">WFM-0000-0000 · wifimap.app/verify</p>
+          </div>
+        </div>
+      </div>
+
+      <p id="watermark-note" class="no-print mx-auto mt-4 max-w-3xl text-center text-xs text-slate-500">
+        <i data-lucide="info" class="inline h-3.5 w-3.5 -mt-0.5"></i>
+        The preview is watermarked. Purchase the official certificate to remove the watermark and download a print-ready PDF.
+      </p>
+    </section>
+  </main>
+
+  <footer class="no-print border-t border-slate-900 py-5 text-center text-xs text-slate-600">
+    WiFiMap · Demo PWA — speed tests are simulated for demonstration purposes.
+  </footer>
+</div>
+
+<!-- ============ MODAL: SPEEDTEST ============ -->
+<div id="modal-speedtest" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4 modal-backdrop">
+  <div class="w-full max-w-md animate-fadeUp rounded-t-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl sm:rounded-2xl">
+    <div class="flex items-center justify-between">
+      <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="activity" class="h-4 w-4 text-cyan-400"></i> <span id="st-title">Speed Test</span></h3>
+      <button onclick="closeSpeedtest(false)" class="text-slate-500 hover:text-slate-300"><i data-lucide="x" class="h-4 w-4"></i></button>
+    </div>
+
+    <!-- Gauge -->
+    <div class="mt-2">
+      <svg viewBox="0 0 200 122" class="mx-auto w-56">
+        <defs>
+          <linearGradient id="gauge-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#34d399"/>
+          </linearGradient>
+        </defs>
+        <path d="M20 110 A80 80 0 0 1 180 110" stroke="#1e293b" stroke-width="13" fill="none" stroke-linecap="round"/>
+        <path id="gauge-arc" d="M20 110 A80 80 0 0 1 180 110" stroke="url(#gauge-grad)" stroke-width="13" fill="none" stroke-linecap="round" stroke-dasharray="251.4" stroke-dashoffset="251.4"/>
+        <text id="gauge-value" x="100" y="84" text-anchor="middle" fill="#f1f5f9" font-size="34" font-weight="800">0</text>
+        <text id="gauge-unit" x="100" y="106" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600">Mbps</text>
+      </svg>
+      <p id="st-status" class="text-center text-xs font-semibold text-cyan-300">Connecting to test server…</p>
+      <div class="mx-auto mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+        <div id="st-progress" class="h-full w-0 rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-[width] duration-150"></div>
+      </div>
+    </div>
+
+    <!-- Metric tiles -->
+    <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+      <div id="tile-ping" class="rounded-xl border border-slate-800 bg-slate-950 p-3 transition">
+        <i data-lucide="timer" class="mx-auto h-4 w-4 text-slate-500"></i>
+        <p class="mt-1 text-lg font-extrabold"><span id="m-ping">—</span></p>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ping ms</p>
+      </div>
+      <div id="tile-down" class="rounded-xl border border-slate-800 bg-slate-950 p-3 transition">
+        <i data-lucide="download" class="mx-auto h-4 w-4 text-slate-500"></i>
+        <p class="mt-1 text-lg font-extrabold"><span id="m-down">—</span></p>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Down Mbps</p>
+      </div>
+      <div id="tile-up" class="rounded-xl border border-slate-800 bg-slate-950 p-3 transition">
+        <i data-lucide="upload" class="mx-auto h-4 w-4 text-slate-500"></i>
+        <p class="mt-1 text-lg font-extrabold"><span id="m-up">—</span></p>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Up Mbps</p>
+      </div>
+    </div>
+
+    <!-- Result / save form (after test) -->
+    <div id="st-result" class="mt-4 hidden">
+      <div id="st-quality" class="rounded-xl border px-4 py-2.5 text-center text-sm font-bold"></div>
+      <label class="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Name this location</label>
+      <input id="st-room" type="text" placeholder="e.g. Living Room"
+        class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold outline-none focus:border-cyan-500 focus:ring-2 ring-cyan-500/40" />
+      <div class="mt-2 flex flex-wrap gap-1.5" id="st-room-chips"></div>
+      <div class="mt-4 flex gap-2">
+        <button onclick="closeSpeedtest(false)" class="flex-1 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500">Discard</button>
+        <button onclick="closeSpeedtest(true)" class="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:brightness-110">
+          Save Pin
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: PIN DETAILS ============ -->
+<div id="modal-pin" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4 modal-backdrop">
+  <div class="w-full max-w-sm animate-fadeUp rounded-t-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl sm:rounded-2xl">
+    <div class="flex items-center justify-between">
+      <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="map-pin" class="h-4 w-4 text-cyan-400"></i> <span id="pd-room">Pin</span></h3>
+      <button onclick="closePinModal()" class="text-slate-500 hover:text-slate-300"><i data-lucide="x" class="h-4 w-4"></i></button>
+    </div>
+    <div id="pd-quality" class="mt-3 rounded-xl border px-4 py-2 text-center text-sm font-bold"></div>
+    <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-xl bg-slate-950 p-3"><p class="text-lg font-extrabold" id="pd-ping">—</p><p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ping ms</p></div>
+      <div class="rounded-xl bg-slate-950 p-3"><p class="text-lg font-extrabold" id="pd-down">—</p><p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Down Mbps</p></div>
+      <div class="rounded-xl bg-slate-950 p-3"><p class="text-lg font-extrabold" id="pd-up">—</p><p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Up Mbps</p></div>
+    </div>
+    <div id="pd-actions" class="mt-4 flex gap-2">
+      <button onclick="deleteCurrentPin()" class="flex-1 rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10"><i data-lucide="trash-2" class="mr-1 inline h-4 w-4"></i>Delete</button>
+      <button onclick="retestCurrentPin()" class="flex-1 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:border-slate-500"><i data-lucide="refresh-cw" class="mr-1 inline h-4 w-4"></i>Re-test</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CHECKOUT ============ -->
+<div id="modal-checkout" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-950/80 p-0 sm:items-center sm:p-4 modal-backdrop">
+  <div class="w-full max-w-md animate-fadeUp rounded-t-2xl border border-slate-800 bg-slate-900 shadow-2xl sm:rounded-2xl overflow-hidden">
+
+    <!-- Step: form -->
+    <div id="checkout-form">
+      <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+        <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="lock" class="h-4 w-4 text-emerald-400"></i> Secure checkout</h3>
+        <button onclick="closeCheckout()" class="text-slate-500 hover:text-slate-300"><i data-lucide="x" class="h-4 w-4"></i></button>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+          <div class="flex items-center gap-3">
+            <span class="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-500"><i data-lucide="award" class="h-5 w-5 text-white"></i></span>
+            <div>
+              <p class="text-sm font-bold">Official Wi-Fi Certificate</p>
+              <p class="text-xs text-slate-500">Unwatermarked · print-ready PDF</p>
+            </div>
+          </div>
+          <p class="text-lg font-extrabold">$5<span class="text-xs font-semibold text-slate-500">.00</span></p>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-400">Email</label>
+            <input id="cc-email" type="email" placeholder="host@example.com" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-cyan-500" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-400">Card information</label>
+            <div class="overflow-hidden rounded-lg border border-slate-700">
+              <div class="relative">
+                <input id="cc-number" inputmode="numeric" placeholder="1234 1234 1234 1234" maxlength="19" class="w-full border-b border-slate-700 bg-slate-950 px-3 py-2.5 pr-10 text-sm outline-none focus:border-cyan-500" />
+                <i data-lucide="credit-card" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
+              </div>
+              <div class="grid grid-cols-2">
+                <input id="cc-exp" inputmode="numeric" placeholder="MM / YY" maxlength="7" class="border-r border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-cyan-500" />
+                <input id="cc-cvc" inputmode="numeric" placeholder="CVC" maxlength="4" class="bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-cyan-500" />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-400">Name on card</label>
+            <input id="cc-name" type="text" placeholder="Full name" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-cyan-500" />
+          </div>
+        </div>
+
+        <button onclick="processPayment()" class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-bold text-slate-950 hover:brightness-110">
+          <i data-lucide="lock" class="h-4 w-4"></i> Pay $5.00
+        </button>
+        <p class="mt-3 text-center text-[11px] text-slate-500"><i data-lucide="shield" class="inline h-3 w-3 -mt-0.5"></i> Demo checkout — no real payment is processed.</p>
+      </div>
+    </div>
+
+    <!-- Step: processing -->
+    <div id="checkout-processing" class="hidden px-5 py-14 text-center">
+      <i data-lucide="loader-2" class="mx-auto h-10 w-10 animate-spin text-cyan-400"></i>
+      <p class="mt-4 text-sm font-bold">Processing payment…</p>
+      <p class="mt-1 text-xs text-slate-500">Contacting your bank securely.</p>
+    </div>
+
+    <!-- Step: success -->
+    <div id="checkout-success" class="hidden px-5 py-12 text-center">
+      <span class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15">
+        <i data-lucide="check-circle-2" class="h-9 w-9 text-emerald-400"></i>
+      </span>
+      <p class="mt-4 text-lg font-extrabold">Payment successful!</p>
+      <p class="mt-1 text-sm text-slate-400">Removing watermark and preparing your official certificate…</p>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="pointer-events-none fixed bottom-5 left-1/2 z-[60] hidden -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold shadow-2xl"></div>
+
+<script>
+/* =========================================================
+   WiFiMap — Certified Airbnb Wi-Fi Signal Mapper
+   Single-page PWA. All speed tests are simulated.
+   ========================================================= */
+
+const STORAGE_KEY = 'wifimap-state-v1';
+const GAUGE_LEN = 251.4;
+
+const state = {
+  view: 'welcome',
+  plan: null,            // { type: 'template' } | { type: 'image', src: dataURL }
+  pins: [],              // { id, x, y (percent), room, ping, down, up }
+  locked: false,
+  paid: false,
+  propertyName: 'Cozy Downtown Apartment',
+  certDate: null,
+  certId: null,
+};
+
+let pendingUploadSrc = null;
+let currentTest = null;   // { x, y, replaceId, ping, down, up, done }
+let currentPinId = null;
+let testRaf = null;
+let deferredInstall = null;
+
+/* ---------- utilities ---------- */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function refreshIcons() { if (window.lucide) lucide.createIcons(); }
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 2600);
+}
+
+function speedColor(down) {
+  if (down >= 100) return { hex: '#22c55e', name: 'Excellent', desc: 'Excellent — 4K streaming & remote work', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', chip: 'bg-emerald-100 text-emerald-700' };
+  if (down >= 30)  return { hex: '#f59e0b', name: 'Good', desc: 'Good — browsing, calls & HD streaming', cls: 'border-amber-500/40 bg-amber-500/10 text-amber-300', chip: 'bg-amber-100 text-amber-700' };
+  return { hex: '#ef4444', name: 'Poor', desc: 'Poor connection — basic use only', cls: 'border-red-500/40 bg-red-500/10 text-red-300', chip: 'bg-red-100 text-red-700' };
+}
+
+/* Simulated signal model: speed decays with distance from the router. */
+function routerPos() { return { x: 48.75, y: 44.6 }; }
+
+function signalAt(x, y) {
+  const r = routerPos();
+  const d = Math.hypot(x - r.x, y - r.y);
+  const down = clamp(Math.round(235 - 2.9 * d + rand(-18, 18)), 8, 240);
+  const up = clamp(Math.round(down * rand(0.38, 0.5)), 3, 120);
+  const ping = Math.round(6 + 0.45 * d + rand(0, 6));
+  return { ping, down, up };
+}
+
+/* ---------- persistence ---------- */
+function persist() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      plan: state.plan, pins: state.pins, locked: state.locked, paid: state.paid,
+      propertyName: state.propertyName, certDate: state.certDate, certId: state.certId,
+      savedAt: Date.now(),
+    }));
+  } catch (e) { /* storage full (large image) — non-fatal */ }
+}
+
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return null; }
+}
+
+function resumeSession() {
+  const s = loadSaved();
+  if (!s || !s.plan) return;
+  Object.assign(state, {
+    plan: s.plan, pins: s.pins || [], locked: !!s.locked, paid: !!s.paid,
+    propertyName: s.propertyName || state.propertyName, certDate: s.certDate, certId: s.certId,
+  });
+  $('property-name').value = state.propertyName;
+  state.locked ? showCertificate() : showMapping();
+}
+
+function discardSession() {
+  localStorage.removeItem(STORAGE_KEY);
+  $('resume-banner').classList.add('hidden');
+  toast('Saved session discarded');
+}
+
+/* ---------- views ---------- */
+function showView(name) {
+  state.view = name;
+  for (const v of ['welcome', 'mapping', 'certificate']) {
+    $('view-' + v).classList.toggle('hidden', v !== name);
+  }
+  const labels = { welcome: 'Dashboard', mapping: 'Mapping mode', certificate: 'Certificate' };
+  $('header-status-text').textContent = labels[name];
+  $('header-status').classList.remove('hidden');
+  window.scrollTo({ top: 0 });
+  refreshIcons();
+}
+
+function goHome() { showView('welcome'); checkResumeBanner(); }
+
+function checkResumeBanner() {
+  const s = loadSaved();
+  const has = s && s.plan && (s.pins || []).length > 0;
+  $('resume-banner').classList.toggle('hidden', !has);
+  if (has) {
+    $('resume-meta').textContent = `${s.pins.length} pin${s.pins.length === 1 ? '' : 's'} · ${s.locked ? 'certificate ready' : 'in progress'}`;
+  }
+}
+
+/* ---------- floor plans ---------- */
+const TEMPLATE_SVG = `
+<svg viewBox="0 0 800 560" class="block h-auto w-full" role="img" aria-label="3-room apartment floor plan">
+  <defs>
+    <pattern id="fp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M20 0H0V20" fill="none" stroke="#13283f" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="560" fill="#081526"/>
+  <rect width="800" height="560" fill="url(#fp-grid)"/>
+
+  <!-- outer walls -->
+  <rect x="20" y="20" width="760" height="520" fill="none" stroke="#67b7e8" stroke-width="6"/>
+
+  <!-- inner walls (gaps = doors) -->
+  <g stroke="#67b7e8" stroke-width="4">
+    <line x1="460" y1="20"  x2="460" y2="100"/>
+    <line x1="460" y1="150" x2="460" y2="350"/>
+    <line x1="460" y1="400" x2="460" y2="540"/>
+    <line x1="20"  y1="320" x2="200" y2="320"/>
+    <line x1="250" y1="320" x2="330" y2="320"/>
+    <line x1="380" y1="320" x2="460" y2="320"/>
+    <line x1="460" y1="220" x2="590" y2="220"/>
+    <line x1="640" y1="220" x2="780" y2="220"/>
+    <line x1="280" y1="320" x2="280" y2="400"/>
+    <line x1="280" y1="450" x2="280" y2="540"/>
+  </g>
+
+  <!-- furniture hints -->
+  <g fill="none" stroke="#2e587e" stroke-width="2.5">
+    <rect x="60"  y="70"  width="150" height="60" rx="8"/>   <!-- sofa -->
+    <rect x="60"  y="150" width="60"  height="60" rx="8"/>   <!-- chair -->
+    <line x1="330" y1="40" x2="430" y2="40" stroke-width="6"/> <!-- TV -->
+    <rect x="475" y="35"  width="290" height="38" rx="4"/>   <!-- kitchen counter -->
+    <circle cx="620" cy="140" r="34"/>                        <!-- dining table -->
+    <rect x="560" y="300" width="170" height="120" rx="8"/>  <!-- bed -->
+    <rect x="40"  y="350" width="130" height="50" rx="6"/>   <!-- desk -->
+    <rect x="310" y="350" width="60"  height="110" rx="20"/> <!-- bathtub -->
+  </g>
+
+  <!-- labels -->
+  <g fill="#7da8c9" font-size="17" font-weight="700" font-family="ui-sans-serif,system-ui" letter-spacing="2">
+    <text x="150" y="260">LIVING ROOM</text>
+    <text x="575" y="110">KITCHEN</text>
+    <text x="585" y="470">BEDROOM</text>
+    <text x="75"  y="480">WORKSPACE</text>
+    <text x="325" y="500">BATH</text>
+  </g>
+
+  <!-- router -->
+  <g transform="translate(390 250)">
+    <circle r="11" fill="#22d3ee"/>
+    <circle r="11" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".45">
+      <animate attributeName="r" values="11;24" dur="1.8s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values=".45;0" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M-5 1 a7 7 0 0 1 10 0 M-2 4 a3 3 0 0 1 4 0" stroke="#06303d" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <text y="32" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700" font-family="ui-sans-serif,system-ui">ROUTER</text>
+  </g>
+</svg>`;
+
+const DEMO_PINS = [
+  { id: 'demo-1', x: 30,    y: 30.4, room: 'Living Room', ping: 9,  down: 176, up: 84 },
+  { id: 'demo-2', x: 18.75, y: 76.8, room: 'Workspace',   ping: 14, down: 121, up: 56 },
+  { id: 'demo-3', x: 77.5,  y: 19.6, room: 'Kitchen',     ping: 21, down: 64,  up: 28 },
+  { id: 'demo-4', x: 82.5,  y: 75,   room: 'Bedroom',     ping: 38, down: 27,  up: 11 },
+];
+
+function startTemplate(withDemoData) {
+  state.plan = { type: 'template' };
+  state.pins = withDemoData ? DEMO_PINS.map(p => ({ ...p })) : [];
+  state.locked = false;
+  state.paid = false;
+  state.certDate = null;
+  showMapping();
+  toast(withDemoData ? 'Demo loaded — tap pins to inspect, tap the map to add more' : 'Template ready — tap a room to run your first test');
+}
+
+function startUploaded() {
+  if (!pendingUploadSrc) return;
+  state.plan = { type: 'image', src: pendingUploadSrc };
+  state.pins = [];
+  state.locked = false;
+  state.paid = false;
+  state.certDate = null;
+  showMapping();
+  toast('Floor plan loaded — tap anywhere to test');
+}
+
+function cancelUpload() {
+  pendingUploadSrc = null;
+  $('upload-preview').classList.add('hidden');
+  $('file-input').value = '';
+}
+
+/* ---------- mapping ---------- */
+function showMapping() {
+  showView('mapping');
+  renderPlan();
+  renderPins();
+  updateToolbar();
+}
+
+function renderPlan() {
+  const holder = $('plan-holder');
+  if (!state.plan) return;
+  if (state.plan.type === 'template') {
+    holder.innerHTML = TEMPLATE_SVG;
+  } else {
+    holder.innerHTML = `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" draggable="false" />`;
+  }
+  $('map-wrap').classList.toggle('locked', state.locked);
+}
+
+function pinMarkup(pin, index, interactive) {
+  const c = speedColor(pin.down);
+  const halo = `<span class="absolute h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full"
+      style="left:0;top:0;background:radial-gradient(circle, ${c.hex}59 0%, ${c.hex}26 45%, transparent 70%)"></span>`;
+  const dot = `
+    <span class="absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-[11px] font-extrabold text-white shadow-lg ${interactive ? 'animate-pinDrop' : ''}"
+      style="left:0;top:0;background:${c.hex}">${index + 1}</span>
+    <span class="absolute -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-bold text-white shadow"
+      style="left:0;top:16px">${escapeHtml(pin.room)} · ${pin.down}↓</span>`;
+  return `<div class="pin-marker absolute" style="left:${pin.x}%;top:${pin.y}%" data-pin="${pin.id}">${halo}${dot}</div>`;
+}
+
+function renderPins() {
+  const layer = $('pin-layer');
+  layer.innerHTML = state.pins.map((p, i) => pinMarkup(p, i, true)).join('');
+  layer.querySelectorAll('.pin-marker').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); openPinModal(el.dataset.pin); });
+  });
+  renderRoomList();
+}
+
+function renderRoomList() {
+  const list = $('room-list');
+  $('room-list-empty').classList.toggle('hidden', state.pins.length > 0);
+  list.innerHTML = state.pins.map((p, i) => {
+    const c = speedColor(p.down);
+    return `
+      <button onclick="openPinModal('${p.id}')" class="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-left transition hover:border-slate-600">
+        <span class="flex items-center gap-2.5 min-w-0">
+          <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-extrabold text-white" style="background:${c.hex}">${i + 1}</span>
+          <span class="truncate text-sm font-semibold">${escapeHtml(p.room)}</span>
+        </span>
+        <span class="shrink-0 text-xs font-bold" style="color:${c.hex}">${p.down} Mbps</span>
+      </button>`;
+  }).join('');
+}
+
+function updateToolbar() {
+  const n = state.pins.length;
+  $('pin-counter').textContent = `${n} pin${n === 1 ? '' : 's'}`;
+  const btn = $('btn-certificate');
+  btn.disabled = n < 3 || state.locked;
+  btn.title = n < 3 ? `Drop ${3 - n} more pin${3 - n === 1 ? '' : 's'} to unlock` : '';
+  $('locked-banner').classList.toggle('hidden', !state.locked);
+  $('locked-banner').classList.toggle('flex', state.locked);
+  $('map-wrap').classList.toggle('locked', state.locked);
+  persist();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+/* ---------- speed test ---------- */
+function onMapTap(e) {
+  if (!state.plan || state.view !== 'mapping') return;
+  if (state.locked) { toast('Editing is locked — unlock to add more pins'); return; }
+  const rect = $('map-wrap').getBoundingClientRect();
+  const x = clamp(((e.clientX - rect.left) / rect.width) * 100, 1, 99);
+  const y = clamp(((e.clientY - rect.top) / rect.height) * 100, 1, 99);
+  openSpeedtest(x, y, null);
+}
+
+function openSpeedtest(x, y, replaceId) {
+  const target = signalAt(x, y);
+  currentTest = { x, y, replaceId, ...target, done: false };
+
+  $('st-title').textContent = replaceId ? 'Re-testing location' : `Speed Test — Pin #${state.pins.length + 1}`;
+  $('st-result').classList.add('hidden');
+  $('m-ping').textContent = '—';
+  $('m-down').textContent = '—';
+  $('m-up').textContent = '—';
+  $('gauge-value').textContent = '0';
+  $('gauge-unit').textContent = 'ms';
+  $('gauge-arc').style.strokeDashoffset = GAUGE_LEN;
+  $('st-progress').style.width = '0%';
+  $('st-status').textContent = 'Connecting to test server…';
+  setActiveTile(null);
+
+  const existing = replaceId ? state.pins.find(p => p.id === replaceId) : null;
+  $('st-room').value = existing ? existing.room : '';
+  $('st-room-chips').innerHTML = ['Living Room', 'Bedroom 1', 'Bedroom 2', 'Workspace', 'Kitchen', 'Balcony']
+    .map(r => `<button onclick="document.getElementById('st-room').value='${r}'" class="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:border-cyan-500 hover:text-cyan-300">${r}</button>`).join('');
+
+  openModal('modal-speedtest');
+  runTestAnimation(target);
+}
+
+function setActiveTile(which) {
+  for (const t of ['ping', 'down', 'up']) {
+    const active = t === which;
+    $('tile-' + t).classList.toggle('border-cyan-500/60', active);
+    $('tile-' + t).classList.toggle('bg-cyan-500/5', active);
+  }
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+function runTestAnimation(target) {
+  cancelAnimationFrame(testRaf);
+  const phases = [
+    { key: 'ping', dur: 900,  label: 'Measuring latency…',        unit: 'ms',   max: 100, target: target.ping },
+    { key: 'down', dur: 1600, label: 'Testing download speed…',   unit: 'Mbps', max: 240, target: target.down },
+    { key: 'up',   dur: 1300, label: 'Testing upload speed…',     unit: 'Mbps', max: 240, target: target.up },
+  ];
+  const total = phases.reduce((s, p) => s + p.dur, 0);
+  const start = performance.now();
+
+  function frame(now) {
+    const elapsed = now - start;
+    let acc = 0, phase = null, t = 1;
+    for (const p of phases) {
+      if (elapsed < acc + p.dur) { phase = p; t = (elapsed - acc) / p.dur; break; }
+      acc += p.dur;
+      $('m-' + p.key).textContent = p.target;   // settle finished phases
+    }
+
+    $('st-progress').style.width = Math.min(100, (elapsed / total) * 100) + '%';
+
+    if (!phase) {  // finished
+      finishTest(target);
+      return;
+    }
+
+    setActiveTile(phase.key);
+    $('st-status').textContent = phase.label;
+    $('gauge-unit').textContent = phase.unit;
+
+    const eased = easeOutCubic(t);
+    const jitter = (1 - t) * phase.target * 0.18 * (Math.random() - 0.5);
+    const value = Math.max(0, Math.round(phase.target * eased + jitter));
+    $('m-' + phase.key).textContent = value;
+    $('gauge-value').textContent = value;
+    $('gauge-arc').style.strokeDashoffset = GAUGE_LEN * (1 - clamp(value / phase.max, 0, 1));
+
+    testRaf = requestAnimationFrame(frame);
+  }
+  testRaf = requestAnimationFrame(frame);
+}
+
+function finishTest(target) {
+  currentTest.done = true;
+  $('m-ping').textContent = target.ping;
+  $('m-down').textContent = target.down;
+  $('m-up').textContent = target.up;
+  $('gauge-value').textContent = target.down;
+  $('gauge-unit').textContent = 'Mbps';
+  $('gauge-arc').style.strokeDashoffset = GAUGE_LEN * (1 - clamp(target.down / 240, 0, 1));
+  $('st-progress').style.width = '100%';
+  $('st-status').textContent = 'Test complete ✓';
+  setActiveTile(null);
+
+  const c = speedColor(target.down);
+  const q = $('st-quality');
+  q.className = `rounded-xl border px-4 py-2.5 text-center text-sm font-bold ${c.cls}`;
+  q.textContent = `${target.down} Mbps — ${c.desc}`;
+  $('st-result').classList.remove('hidden');
+  if (!$('st-room').value) $('st-room').focus();
+  refreshIcons();
+}
+
+function closeSpeedtest(save) {
+  cancelAnimationFrame(testRaf);
+  if (save && currentTest && currentTest.done) {
+    const room = $('st-room').value.trim() || `Spot ${state.pins.length + 1}`;
+    if (currentTest.replaceId) {
+      const pin = state.pins.find(p => p.id === currentTest.replaceId);
+      if (pin) Object.assign(pin, { room, ping: currentTest.ping, down: currentTest.down, up: currentTest.up });
+    } else {
+      state.pins.push({
+        id: 'pin-' + Date.now().toString(36),
+        x: currentTest.x, y: currentTest.y, room,
+        ping: currentTest.ping, down: currentTest.down, up: currentTest.up,
+      });
+    }
+    renderPins();
+    updateToolbar();
+    if (!currentTest.replaceId && state.pins.length === 3) toast('🎉 3 pins mapped — your certificate is ready to generate!');
+  }
+  currentTest = null;
+  closeModal('modal-speedtest');
+}
+
+/* ---------- pin details ---------- */
+function openPinModal(id) {
+  const pin = state.pins.find(p => p.id === id);
+  if (!pin) return;
+  currentPinId = id;
+  const c = speedColor(pin.down);
+  $('pd-room').textContent = pin.room;
+  $('pd-ping').textContent = pin.ping;
+  $('pd-down').textContent = pin.down;
+  $('pd-up').textContent = pin.up;
+  const q = $('pd-quality');
+  q.className = `mt-3 rounded-xl border px-4 py-2 text-center text-sm font-bold ${c.cls}`;
+  q.textContent = c.desc;
+  $('pd-actions').classList.toggle('hidden', state.locked);
+  openModal('modal-pin');
+}
+
+function closePinModal() { currentPinId = null; closeModal('modal-pin'); }
+
+function deleteCurrentPin() {
+  state.pins = state.pins.filter(p => p.id !== currentPinId);
+  closePinModal();
+  renderPins();
+  updateToolbar();
+  toast('Pin deleted');
+}
+
+function retestCurrentPin() {
+  const pin = state.pins.find(p => p.id === currentPinId);
+  closePinModal();
+  if (pin) openSpeedtest(pin.x, pin.y, pin.id);
+}
+
+/* ---------- certificate ---------- */
+function starsFor(avgDown) {
+  if (avgDown >= 150) return 5;
+  if (avgDown >= 100) return 4.5;
+  if (avgDown >= 70) return 4;
+  if (avgDown >= 50) return 3.5;
+  if (avgDown >= 30) return 3;
+  if (avgDown >= 15) return 2;
+  return 1;
+}
+
+function generateCertificate() {
+  if (state.pins.length < 3) return;
+  state.locked = true;
+  state.certDate = state.certDate || new Date().toISOString();
+  state.certId = state.certId || ('WFM-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase());
+  showCertificate();
+  toast('Certificate generated — editing locked');
+}
+
+function showCertificate() {
+  if (!state.certDate) { generateCertificate(); return; }
+  showView('certificate');
+  renderCertificate();
+  persist();
+}
+
+function unlockEditing() {
+  state.locked = false;
+  showMapping();
+  toast('Editing unlocked — re-generate the certificate when done');
+}
+
+function renderCertificate() {
+  const pins = state.pins;
+  const avg = (key) => Math.round(pins.reduce((s, p) => s + p[key], 0) / pins.length);
+  const avgDown = avg('down'), avgUp = avg('up'), avgPing = avg('ping');
+
+  $('cert-property').textContent = state.propertyName || 'My Property';
+  $('cert-date').textContent = new Date(state.certDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  $('cert-id').textContent = state.certId;
+  $('cert-id-footer').textContent = state.certId + ' · wifimap.app/verify';
+  $('cert-avg-down').textContent = avgDown;
+  $('cert-avg-up').textContent = avgUp;
+  $('cert-avg-ping').textContent = avgPing;
+
+  // stars
+  const stars = starsFor(avgDown);
+  let starHtml = '';
+  for (let i = 1; i <= 5; i++) {
+    if (stars >= i) starHtml += `<i data-lucide="star" class="h-5 w-5 fill-amber-400 text-amber-400"></i>`;
+    else if (stars >= i - 0.5) starHtml += `<i data-lucide="star-half" class="h-5 w-5 fill-amber-400 text-amber-400"></i>`;
+    else starHtml += `<i data-lucide="star" class="h-5 w-5 text-slate-300"></i>`;
+  }
+  $('cert-stars').innerHTML = starHtml + `<span class="ml-1.5 text-sm font-bold text-slate-700">${stars.toFixed(1)} / 5.0</span>`;
+
+  // map snapshot (read-only)
+  const certMap = $('cert-map');
+  certMap.innerHTML = `
+    <div class="relative">
+      ${state.plan.type === 'template' ? TEMPLATE_SVG : `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" />`}
+      <div class="absolute inset-0">${pins.map((p, i) => pinMarkup(p, i, false)).join('')}</div>
+    </div>`;
+
+  // table
+  $('cert-table').innerHTML = pins.map((p, i) => {
+    const c = speedColor(p.down);
+    return `
+      <tr class="border-b border-slate-100">
+        <td class="py-2.5 pr-2 font-bold text-slate-400">${i + 1}</td>
+        <td class="py-2.5 pr-2 font-semibold">${escapeHtml(p.room)}</td>
+        <td class="py-2.5 pr-2 text-right tabular-nums">${p.ping} ms</td>
+        <td class="py-2.5 pr-2 text-right font-bold tabular-nums">${p.down} Mbps</td>
+        <td class="py-2.5 pr-2 text-right tabular-nums">${p.up} Mbps</td>
+        <td class="py-2.5 text-right"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold ${c.chip}">${c.name}</span></td>
+      </tr>`;
+  }).join('');
+
+  // watermark + download button state
+  const wm = $('cert-watermark');
+  if (state.paid) {
+    wm.innerHTML = '';
+    wm.style.display = 'none';
+    $('btn-download-label').textContent = 'Download / Print Certificate';
+    $('watermark-note').innerHTML = `<i data-lucide="badge-check" class="inline h-3.5 w-3.5 -mt-0.5 text-emerald-400"></i> Official certificate unlocked — watermark removed. Use your browser's print dialog to save as PDF.`;
+  } else {
+    wm.style.display = 'flex';
+    wm.innerHTML = Array.from({ length: 12 }, () => '<span>WIFIMAP · PREVIEW</span>').join('');
+    $('btn-download-label').textContent = 'Download Official PDF ($5)';
+  }
+  refreshIcons();
+}
+
+/* ---------- checkout ---------- */
+function onDownloadClick() {
+  if (state.paid) { window.print(); return; }
+  $('checkout-form').classList.remove('hidden');
+  $('checkout-processing').classList.add('hidden');
+  $('checkout-success').classList.add('hidden');
+  openModal('modal-checkout');
+}
+
+function closeCheckout() { closeModal('modal-checkout'); }
+
+function processPayment() {
+  $('checkout-form').classList.add('hidden');
+  $('checkout-processing').classList.remove('hidden');
+  refreshIcons();
+  setTimeout(() => {
+    $('checkout-processing').classList.add('hidden');
+    $('checkout-success').classList.remove('hidden');
+    refreshIcons();
+    setTimeout(() => {
+      state.paid = true;
+      closeCheckout();
+      renderCertificate();
+      persist();
+      toast('✓ Official certificate unlocked');
+      setTimeout(() => window.print(), 700);
+    }, 1400);
+  }, 1800);
+}
+
+/* ---------- modals ---------- */
+function openModal(id) {
+  const m = $(id);
+  m.classList.remove('hidden');
+  m.classList.add('flex');
+  refreshIcons();
+}
+function closeModal(id) {
+  const m = $(id);
+  m.classList.add('hidden');
+  m.classList.remove('flex');
+}
+
+/* ---------- wiring ---------- */
+$('map-wrap').addEventListener('click', onMapTap);
+
+$('file-input').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingUploadSrc = reader.result;
+    $('upload-preview-img').src = pendingUploadSrc;
+    $('upload-preview').classList.remove('hidden');
+    $('upload-preview').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    refreshIcons();
+  };
+  reader.readAsDataURL(file);
+});
+
+$('property-name').addEventListener('input', (e) => {
+  state.propertyName = e.target.value;
+  $('cert-property').textContent = state.propertyName || 'My Property';
+  persist();
+});
+
+// Stripe-like input formatting
+$('cc-number').addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
+});
+$('cc-exp').addEventListener('input', (e) => {
+  let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+  e.target.value = v.length > 2 ? v.slice(0, 2) + ' / ' + v.slice(2) : v;
+});
+$('cc-cvc').addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+});
+
+// Close modals on backdrop click / Escape
+for (const id of ['modal-speedtest', 'modal-pin', 'modal-checkout']) {
+  $(id).addEventListener('click', (e) => {
+    if (e.target.id !== id) return;
+    if (id === 'modal-speedtest') closeSpeedtest(false);
+    else if (id === 'modal-pin') closePinModal();
+    else closeCheckout();
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  closeSpeedtest(false); closePinModal(); closeCheckout();
+});
+
+// PWA install prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  $('btn-install').classList.remove('hidden');
+  $('btn-install').classList.add('flex');
+  refreshIcons();
+});
+$('btn-install').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  $('btn-install').classList.add('hidden');
+});
+
+// Service worker
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+// Init
+checkResumeBanner();
+window.addEventListener('DOMContentLoaded', refreshIcons);
+window.addEventListener('load', refreshIcons);
+</script>
+</body>
+</html>

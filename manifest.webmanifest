@@ -1,0 +1,26 @@
+{
+  "name": "WiFiMap — Certified Airbnb Wi-Fi Signal Mapper",
+  "short_name": "WiFiMap",
+  "description": "Map your Wi-Fi. Certify your Speed. Attract Digital Nomads. Generate a visual Wi-Fi quality certificate for your listing.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": ["productivity", "utilities", "travel"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
