@@ -247,6 +247,12 @@
           <p id="room-list-empty" class="mt-3 rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-500">
             No tests yet.<br/>Walk to a room and tap its position on the map.
           </p>
+          <div class="mt-4">
+            <label class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Network name (SSID)</label>
+            <input id="ssid-input" type="text" placeholder="Home Wi-Fi"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold outline-none focus:border-cyan-500" />
+            <p class="mt-1 text-[10px] text-slate-600">Shown in scan details and on the certificate.</p>
+          </div>
           <div class="mt-4 rounded-xl bg-slate-950/70 p-3 text-xs text-slate-400">
             <p class="flex items-center gap-1.5 font-semibold text-slate-300"><i data-lucide="lightbulb" class="h-3.5 w-3.5 text-amber-400"></i> Pro tip</p>
             <p class="mt-1">Test at least <strong class="text-slate-200">3 spots</strong> (e.g. Living Room, Bedroom, Workspace) to unlock your certificate.</p>
@@ -310,7 +316,7 @@
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Certified property</p>
               <h4 id="cert-property" class="mt-0.5 text-2xl font-extrabold tracking-tight text-slate-900">Cozy Downtown Apartment</h4>
-              <p class="mt-1 text-sm text-slate-500">Certified on <span id="cert-date" class="font-semibold text-slate-700">—</span></p>
+              <p class="mt-1 text-sm text-slate-500">Certified on <span id="cert-date" class="font-semibold text-slate-700">—</span> · Network <span id="cert-ssid" class="font-semibold text-slate-700">—</span></p>
               <div id="cert-stars" class="mt-2 flex items-center gap-1"></div>
             </div>
             <div class="flex flex-col items-center gap-1 rounded-2xl border-2 border-emerald-500 bg-emerald-50 px-5 py-3 text-center">
@@ -344,7 +350,7 @@
           <!-- Per-room table -->
           <div class="mt-5 overflow-x-auto">
             <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Speed by location</p>
-            <table class="w-full min-w-[480px] text-sm">
+            <table class="w-full min-w-[560px] text-sm">
               <thead>
                 <tr class="border-b-2 border-slate-200 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   <th class="py-2 pr-2">#</th>
@@ -352,6 +358,7 @@
                   <th class="py-2 pr-2 text-right">Ping</th>
                   <th class="py-2 pr-2 text-right">Download</th>
                   <th class="py-2 pr-2 text-right">Upload</th>
+                  <th class="py-2 pr-2 text-right">Signal</th>
                   <th class="py-2 text-right">Quality</th>
                 </tr>
               </thead>
@@ -554,6 +561,7 @@
     <!-- Result / save form (after test) -->
     <div id="st-result" class="mt-4 hidden">
       <div id="st-quality" class="rounded-xl border px-4 py-2.5 text-center text-sm font-bold"></div>
+      <div id="st-details" class="mt-3"></div>
       <label class="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Name this location</label>
       <input id="st-room" type="text" placeholder="e.g. Living Room"
         class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold outline-none focus:border-cyan-500 focus:ring-2 ring-cyan-500/40" />
@@ -581,6 +589,7 @@
       <div class="rounded-xl bg-slate-950 p-3"><p class="text-lg font-extrabold" id="pd-down">—</p><p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Down Mbps</p></div>
       <div class="rounded-xl bg-slate-950 p-3"><p class="text-lg font-extrabold" id="pd-up">—</p><p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Up Mbps</p></div>
     </div>
+    <div id="pd-details" class="mt-3"></div>
     <div id="pd-actions" class="mt-4 flex gap-2">
       <button onclick="deleteCurrentPin()" class="flex-1 rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10"><i data-lucide="trash-2" class="mr-1 inline h-4 w-4"></i>Delete</button>
       <button onclick="retestCurrentPin()" class="flex-1 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:border-slate-500"><i data-lucide="refresh-cw" class="mr-1 inline h-4 w-4"></i>Re-test</button>
@@ -693,6 +702,7 @@ const state = {
   paid: false,
   adminMode: false,      // paywall bypass, toggled from the admin panel
   testMode: 'live',      // 'live' = real measurement via Cloudflare, 'sim' = demo simulation
+  ssid: 'Home Wi-Fi',    // network name shown in scan details (browsers cannot read the real SSID)
   propertyName: 'Cozy Downtown Apartment',
   certDate: null,
   certId: null,
@@ -742,12 +752,74 @@ function signalAt(x, y) {
   return { ping, down, up };
 }
 
+/* Access-point channels, stable per network name so they don't change between scans. */
+function apChannels() {
+  let h = 0;
+  for (const ch of (state.ssid || 'Home Wi-Fi')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return { c24: [1, 6, 11][h % 3], c5: [36, 40, 44, 48, 149, 153, 157, 161][h % 8] };
+}
+
+/* Wi-Fi radio details modeled from distance to the router. Browsers cannot
+   read the real SSID/channel/RSSI, so these are estimates even in live mode. */
+function radioDetailsAt(x, y) {
+  const r = routerPos();
+  const d = Math.hypot(x - r.x, y - r.y);
+  const rssi = Math.round(clamp(-32 - d * 0.62 - rand(0, 4), -92, -30));
+  const band = rssi > -65 ? '5 GHz' : '2.4 GHz';
+  const ch = apChannels();
+  return {
+    rssi,
+    band,
+    channel: band === '5 GHz' ? ch.c5 : ch.c24,
+    width: band === '5 GHz' ? (rssi > -55 ? '80 MHz' : '40 MHz') : '20 MHz',
+    security: 'WPA2/WPA3',
+  };
+}
+
+/* Browser-reported link info (Network Information API, where supported). */
+function deviceLink() {
+  const c = navigator.connection;
+  if (!c) return null;
+  const parts = [];
+  if (c.type) parts.push(c.type);
+  if (c.effectiveType) parts.push(c.effectiveType);
+  if (c.downlink) parts.push('~' + c.downlink + ' Mbps');
+  return parts.join(' · ') || null;
+}
+
+/* Shared key/value grid for the speedtest result and pin details modals.
+   Radio fields get an "est." badge on live scans, where the speeds are real
+   but the radio data is modeled. */
+function scanDetailsHtml(p) {
+  const est = p.source === 'live'
+    ? ' <span class="text-[9px] text-slate-600" title="Browsers cannot read Wi-Fi radio data — estimated from the signal model">est.</span>'
+    : '';
+  const sigPct = p.rssi != null ? clamp(Math.round(2 * (p.rssi + 100)), 0, 100) : null;
+  const rows = [];
+  rows.push(['Network (SSID)', escapeHtml(state.ssid || 'Home Wi-Fi'), '']);
+  if (p.jitter != null) rows.push(['Jitter', p.jitter + ' ms', '']);
+  if (p.rssi != null) rows.push(['Signal strength', `${p.rssi} dBm (${sigPct}%)`, est]);
+  if (p.band) rows.push(['Band', p.band, est]);
+  if (p.channel) rows.push(['Channel', p.channel, est]);
+  if (p.width) rows.push(['Channel width', p.width, est]);
+  if (p.security) rows.push(['Security', p.security, est]);
+  if (p.isp) rows.push(['ISP', escapeHtml(p.isp), '']);
+  if (p.server) rows.push(['Test server', escapeHtml(p.server), '']);
+  if (p.netType) rows.push(['Device link', escapeHtml(p.netType), '']);
+  if (rows.length <= 1) return '';
+  return `<div class="grid grid-cols-2 gap-1.5 text-xs">` + rows.map(([k, v, badge]) => `
+    <div class="flex items-baseline justify-between gap-2 rounded-lg bg-slate-950 px-2.5 py-1.5">
+      <span class="shrink-0 text-slate-500">${k}${badge}</span>
+      <span class="truncate text-right font-semibold text-slate-200" title="${String(v).replace(/"/g, '&quot;')}">${v}</span>
+    </div>`).join('') + '</div>';
+}
+
 /* ---------- persistence ---------- */
 function persist() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       plan: state.plan, pins: state.pins, locked: state.locked, paid: state.paid,
-      adminMode: state.adminMode, testMode: state.testMode,
+      adminMode: state.adminMode, testMode: state.testMode, ssid: state.ssid,
       propertyName: state.propertyName, certDate: state.certDate, certId: state.certId,
       savedAt: Date.now(),
     }));
@@ -763,7 +835,7 @@ function resumeSession() {
   if (!s || !s.plan) return;
   Object.assign(state, {
     plan: s.plan, pins: s.pins || [], locked: !!s.locked, paid: !!s.paid,
-    adminMode: !!s.adminMode, testMode: s.testMode || 'live',
+    adminMode: !!s.adminMode, testMode: s.testMode || 'live', ssid: s.ssid || state.ssid,
     propertyName: s.propertyName || state.propertyName, certDate: s.certDate, certId: s.certId,
   });
   updateAdminChip();
@@ -863,10 +935,10 @@ const TEMPLATE_SVG = `
 </svg>`;
 
 const DEMO_PINS = [
-  { id: 'demo-1', x: 30,    y: 30.4, room: 'Living Room', ping: 9,  down: 176, up: 84, source: 'sim' },
-  { id: 'demo-2', x: 18.75, y: 76.8, room: 'Workspace',   ping: 14, down: 121, up: 56, source: 'sim' },
-  { id: 'demo-3', x: 77.5,  y: 19.6, room: 'Kitchen',     ping: 21, down: 64,  up: 28, source: 'sim' },
-  { id: 'demo-4', x: 82.5,  y: 75,   room: 'Bedroom',     ping: 38, down: 27,  up: 11, source: 'sim' },
+  { id: 'demo-1', x: 30,    y: 30.4, room: 'Living Room', ping: 9,  down: 176, up: 84, jitter: 2,  rssi: -45, band: '5 GHz',   channel: 36, width: '80 MHz', security: 'WPA2/WPA3', source: 'sim' },
+  { id: 'demo-2', x: 18.75, y: 76.8, room: 'Workspace',   ping: 14, down: 121, up: 56, jitter: 4,  rssi: -58, band: '5 GHz',   channel: 36, width: '40 MHz', security: 'WPA2/WPA3', source: 'sim' },
+  { id: 'demo-3', x: 77.5,  y: 19.6, room: 'Kitchen',     ping: 21, down: 64,  up: 28, jitter: 7,  rssi: -68, band: '2.4 GHz', channel: 6,  width: '20 MHz', security: 'WPA2/WPA3', source: 'sim' },
+  { id: 'demo-4', x: 82.5,  y: 75,   room: 'Bedroom',     ping: 38, down: 27,  up: 11, jitter: 12, rssi: -79, band: '2.4 GHz', channel: 6,  width: '20 MHz', security: 'WPA2/WPA3', source: 'sim' },
 ];
 
 function startTemplate(withDemoData) {
@@ -1140,6 +1212,7 @@ function showMapping() {
   renderPins();
   updateToolbar();
   updateTestModeBtn();
+  $('ssid-input').value = state.ssid || '';
 }
 
 function toggleTestMode() {
@@ -1275,12 +1348,13 @@ function liveTick(key, value, max) {
 async function startLiveTest(x, y) {
   liveAbort = new AbortController();
   const signal = liveAbort.signal;
+  const metaPromise = fetchMeta(signal);
   try {
     setActiveTile('ping');
     $('st-status').textContent = 'Measuring latency (Cloudflare)…';
     $('gauge-unit').textContent = 'ms';
     setProgress(5);
-    const ping = await cfLatency(signal, v => liveTick('ping', v, 100));
+    const { ping, jitter } = await cfLatency(signal, v => liveTick('ping', v, 100));
     liveTick('ping', ping, 100);
     setProgress(15);
 
@@ -1301,7 +1375,8 @@ async function startLiveTest(x, y) {
       setProgress(70 + frac * 30);
     })));
 
-    finishTest({ ping, down, up });
+    await metaPromise;
+    finishTest({ ping, down, up, jitter });
   } catch (err) {
     if (signal.aborted || !currentTest) return;  // user closed the modal
     toast('Live test unavailable — falling back to simulation');
@@ -1312,17 +1387,32 @@ async function startLiveTest(x, y) {
   }
 }
 
-/* Median round-trip time; the first request warms up the connection and is dropped. */
+/* Median round-trip time + jitter (mean successive difference); the first
+   request warms up the connection and is dropped. */
 async function cfLatency(signal, onTick) {
   const samples = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const t0 = performance.now();
     await fetch(`${CF}/__down?bytes=0&r=${Date.now()}${i}`, { signal, cache: 'no-store' });
     const ms = performance.now() - t0;
     if (i > 0) { samples.push(ms); onTick(Math.min(...samples)); }
   }
+  let jit = 0;
+  for (let i = 1; i < samples.length; i++) jit += Math.abs(samples[i] - samples[i - 1]);
+  const jitter = Math.max(1, Math.round(jit / (samples.length - 1)));
   samples.sort((a, b) => a - b);
-  return Math.max(1, Math.round(samples[Math.floor(samples.length / 2)]));
+  return { ping: Math.max(1, Math.round(samples[Math.floor(samples.length / 2)])), jitter };
+}
+
+/* Cloudflare /meta: public IP, ISP (AS organization) and which edge served us. */
+let cfMeta = null;
+async function fetchMeta(signal) {
+  if (cfMeta) return cfMeta;
+  try {
+    const res = await fetch(`${CF}/meta`, { signal, cache: 'no-store' });
+    cfMeta = await res.json();
+  } catch (e) { /* optional enrichment — ignore failures */ }
+  return cfMeta;
 }
 
 /* Stream progressively larger payloads for up to ~5s; report instantaneous
@@ -1428,7 +1518,17 @@ function runTestAnimation(target) {
 }
 
 function finishTest(target) {
-  Object.assign(currentTest, target, { done: true });
+  const extras = {
+    jitter: target.jitter != null ? target.jitter : Math.max(1, Math.round(rand(1, 5) + target.ping * 0.15)),
+    ...radioDetailsAt(currentTest.x, currentTest.y),
+    netType: deviceLink(),
+  };
+  if (currentTest.source === 'live' && cfMeta) {
+    if (cfMeta.asOrganization) extras.isp = cfMeta.asOrganization;
+    if (cfMeta.colo) extras.server = `Cloudflare ${cfMeta.colo}`;
+  }
+  Object.assign(currentTest, target, extras, { done: true });
+  $('st-details').innerHTML = scanDetailsHtml(currentTest);
   $('m-ping').textContent = target.ping;
   $('m-down').textContent = target.down;
   $('m-up').textContent = target.up;
@@ -1453,16 +1553,13 @@ function closeSpeedtest(save) {
   if (liveAbort) liveAbort.abort();
   if (save && currentTest && currentTest.done) {
     const room = $('st-room').value.trim() || `Spot ${state.pins.length + 1}`;
+    const data = (({ ping, down, up, jitter, rssi, band, channel, width, security, isp, server, netType, source }) =>
+      ({ ping, down, up, jitter, rssi, band, channel, width, security, isp, server, netType, source }))(currentTest);
     if (currentTest.replaceId) {
       const pin = state.pins.find(p => p.id === currentTest.replaceId);
-      if (pin) Object.assign(pin, { room, ping: currentTest.ping, down: currentTest.down, up: currentTest.up, source: currentTest.source });
+      if (pin) Object.assign(pin, { room, ...data });
     } else {
-      state.pins.push({
-        id: 'pin-' + Date.now().toString(36),
-        x: currentTest.x, y: currentTest.y, room,
-        ping: currentTest.ping, down: currentTest.down, up: currentTest.up,
-        source: currentTest.source,
-      });
+      state.pins.push({ id: 'pin-' + Date.now().toString(36), x: currentTest.x, y: currentTest.y, room, ...data });
     }
     renderPins();
     updateToolbar();
@@ -1485,6 +1582,7 @@ function openPinModal(id) {
   const q = $('pd-quality');
   q.className = `mt-3 rounded-xl border px-4 py-2 text-center text-sm font-bold ${c.cls}`;
   q.textContent = c.desc;
+  $('pd-details').innerHTML = scanDetailsHtml(pin);
   $('pd-actions').classList.toggle('hidden', state.locked);
   openModal('modal-pin');
 }
@@ -1545,6 +1643,7 @@ function renderCertificate() {
 
   $('cert-property').textContent = state.propertyName || 'My Property';
   $('cert-date').textContent = new Date(state.certDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  $('cert-ssid').textContent = state.ssid || 'Home Wi-Fi';
   $('cert-id').textContent = state.certId;
   $('cert-id-footer').textContent = state.certId + ' · wifimap.app/verify';
   $('cert-avg-down').textContent = avgDown;
@@ -1584,6 +1683,7 @@ function renderCertificate() {
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.ping} ms</td>
         <td class="py-2.5 pr-2 text-right font-bold tabular-nums">${p.down} Mbps</td>
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.up} Mbps</td>
+        <td class="py-2.5 pr-2 text-right tabular-nums">${p.rssi != null ? `${p.rssi} dBm` : '—'}${p.band ? `<span class="block text-[10px] text-slate-400">${p.band} · ch ${p.channel}</span>` : ''}</td>
         <td class="py-2.5 text-right"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold ${c.chip}">${c.name}</span></td>
       </tr>`;
   }).join('');
@@ -1670,6 +1770,11 @@ $('file-input').addEventListener('change', (e) => {
     refreshIcons();
   };
   reader.readAsDataURL(file);
+});
+
+$('ssid-input').addEventListener('input', (e) => {
+  state.ssid = e.target.value.trim() || 'Home Wi-Fi';
+  persist();
 });
 
 $('property-name').addEventListener('input', (e) => {
