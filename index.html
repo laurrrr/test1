@@ -208,6 +208,8 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <button id="btn-testmode" onclick="toggleTestMode()" title="Switch between live Cloudflare measurement and simulated demo values"
+            class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500"></button>
           <span id="pin-counter" class="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300">0 pins</span>
           <button id="btn-certificate" onclick="generateCertificate()" disabled
             class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0">
@@ -359,7 +361,7 @@
 
           <!-- Footer -->
           <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs text-slate-500">
-            <p class="flex items-center gap-1.5"><i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> Measured on-site with WiFiMap signal mapping technology.</p>
+            <p id="cert-method" class="flex items-center gap-1.5"><i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> Measured on-site with WiFiMap signal mapping technology.</p>
             <p class="font-mono" id="cert-id-footer">WFM-0000-0000 · wifimap.app/verify</p>
           </div>
         </div>
@@ -499,7 +501,7 @@
   </main>
 
   <footer class="no-print border-t border-slate-900 py-5 text-center text-xs text-slate-600">
-    WiFiMap · Demo PWA — speed tests are simulated for demonstration purposes.
+    WiFiMap · Demo PWA — live tests measure your real connection via Cloudflare; demo mode uses simulated values.
   </footer>
 </div>
 
@@ -690,6 +692,7 @@ const state = {
   locked: false,
   paid: false,
   adminMode: false,      // paywall bypass, toggled from the admin panel
+  testMode: 'live',      // 'live' = real measurement via Cloudflare, 'sim' = demo simulation
   propertyName: 'Cozy Downtown Apartment',
   certDate: null,
   certId: null,
@@ -744,7 +747,7 @@ function persist() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       plan: state.plan, pins: state.pins, locked: state.locked, paid: state.paid,
-      adminMode: state.adminMode,
+      adminMode: state.adminMode, testMode: state.testMode,
       propertyName: state.propertyName, certDate: state.certDate, certId: state.certId,
       savedAt: Date.now(),
     }));
@@ -760,7 +763,7 @@ function resumeSession() {
   if (!s || !s.plan) return;
   Object.assign(state, {
     plan: s.plan, pins: s.pins || [], locked: !!s.locked, paid: !!s.paid,
-    adminMode: !!s.adminMode,
+    adminMode: !!s.adminMode, testMode: s.testMode || 'live',
     propertyName: s.propertyName || state.propertyName, certDate: s.certDate, certId: s.certId,
   });
   updateAdminChip();
@@ -860,10 +863,10 @@ const TEMPLATE_SVG = `
 </svg>`;
 
 const DEMO_PINS = [
-  { id: 'demo-1', x: 30,    y: 30.4, room: 'Living Room', ping: 9,  down: 176, up: 84 },
-  { id: 'demo-2', x: 18.75, y: 76.8, room: 'Workspace',   ping: 14, down: 121, up: 56 },
-  { id: 'demo-3', x: 77.5,  y: 19.6, room: 'Kitchen',     ping: 21, down: 64,  up: 28 },
-  { id: 'demo-4', x: 82.5,  y: 75,   room: 'Bedroom',     ping: 38, down: 27,  up: 11 },
+  { id: 'demo-1', x: 30,    y: 30.4, room: 'Living Room', ping: 9,  down: 176, up: 84, source: 'sim' },
+  { id: 'demo-2', x: 18.75, y: 76.8, room: 'Workspace',   ping: 14, down: 121, up: 56, source: 'sim' },
+  { id: 'demo-3', x: 77.5,  y: 19.6, room: 'Kitchen',     ping: 21, down: 64,  up: 28, source: 'sim' },
+  { id: 'demo-4', x: 82.5,  y: 75,   room: 'Bedroom',     ping: 38, down: 27,  up: 11, source: 'sim' },
 ];
 
 function startTemplate(withDemoData) {
@@ -1136,6 +1139,22 @@ function showMapping() {
   renderPlan();
   renderPins();
   updateToolbar();
+  updateTestModeBtn();
+}
+
+function toggleTestMode() {
+  state.testMode = state.testMode === 'live' ? 'sim' : 'live';
+  persist();
+  updateTestModeBtn();
+  toast(state.testMode === 'live' ? 'Live mode — real measurements via Cloudflare' : 'Demo mode — simulated measurements');
+}
+
+function updateTestModeBtn() {
+  const live = state.testMode === 'live';
+  $('btn-testmode').innerHTML = live
+    ? '<i data-lucide="zap" class="h-3.5 w-3.5 text-emerald-400"></i> Live test'
+    : '<i data-lucide="flask-conical" class="h-3.5 w-3.5 text-amber-400"></i> Demo mode';
+  refreshIcons();
 }
 
 /* Markup for the current floor plan, reused by the map and the certificate. */
@@ -1216,8 +1235,7 @@ function onMapTap(e) {
 }
 
 function openSpeedtest(x, y, replaceId) {
-  const target = signalAt(x, y);
-  currentTest = { x, y, replaceId, ...target, done: false };
+  currentTest = { x, y, replaceId, done: false, source: state.testMode };
 
   $('st-title').textContent = replaceId ? 'Re-testing location' : `Speed Test — Pin #${state.pins.length + 1}`;
   $('st-result').classList.add('hidden');
@@ -1237,7 +1255,124 @@ function openSpeedtest(x, y, replaceId) {
     .map(r => `<button onclick="document.getElementById('st-room').value='${r}'" class="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:border-cyan-500 hover:text-cyan-300">${r}</button>`).join('');
 
   openModal('modal-speedtest');
-  runTestAnimation(target);
+  if (state.testMode === 'live') startLiveTest(x, y);
+  else runTestAnimation(signalAt(x, y));
+}
+
+/* ---------- live measurement via Cloudflare (speed.cloudflare.com) ---------- */
+const CF = 'https://speed.cloudflare.com';
+let liveAbort = null;
+
+function setProgress(pct) { $('st-progress').style.width = clamp(pct, 0, 100) + '%'; }
+
+function liveTick(key, value, max) {
+  const v = Math.max(0, Math.round(value));
+  $('m-' + key).textContent = v;
+  $('gauge-value').textContent = v;
+  $('gauge-arc').style.strokeDashoffset = GAUGE_LEN * (1 - clamp(v / max, 0, 1));
+}
+
+async function startLiveTest(x, y) {
+  liveAbort = new AbortController();
+  const signal = liveAbort.signal;
+  try {
+    setActiveTile('ping');
+    $('st-status').textContent = 'Measuring latency (Cloudflare)…';
+    $('gauge-unit').textContent = 'ms';
+    setProgress(5);
+    const ping = await cfLatency(signal, v => liveTick('ping', v, 100));
+    liveTick('ping', ping, 100);
+    setProgress(15);
+
+    setActiveTile('down');
+    $('st-status').textContent = 'Testing download (Cloudflare)…';
+    $('gauge-unit').textContent = 'Mbps';
+    const down = Math.max(1, Math.round(await cfDownload(signal, (v, frac) => {
+      liveTick('down', v, 300);
+      setProgress(15 + frac * 55);
+    })));
+    $('m-down').textContent = down;
+    setProgress(70);
+
+    setActiveTile('up');
+    $('st-status').textContent = 'Testing upload (Cloudflare)…';
+    const up = Math.max(1, Math.round(await cfUpload(signal, (v, frac) => {
+      liveTick('up', v, 150);
+      setProgress(70 + frac * 30);
+    })));
+
+    finishTest({ ping, down, up });
+  } catch (err) {
+    if (signal.aborted || !currentTest) return;  // user closed the modal
+    toast('Live test unavailable — falling back to simulation');
+    currentTest.source = 'sim';
+    runTestAnimation(signalAt(x, y));
+  } finally {
+    liveAbort = null;
+  }
+}
+
+/* Median round-trip time; the first request warms up the connection and is dropped. */
+async function cfLatency(signal, onTick) {
+  const samples = [];
+  for (let i = 0; i < 5; i++) {
+    const t0 = performance.now();
+    await fetch(`${CF}/__down?bytes=0&r=${Date.now()}${i}`, { signal, cache: 'no-store' });
+    const ms = performance.now() - t0;
+    if (i > 0) { samples.push(ms); onTick(Math.min(...samples)); }
+  }
+  samples.sort((a, b) => a - b);
+  return Math.max(1, Math.round(samples[Math.floor(samples.length / 2)]));
+}
+
+/* Stream progressively larger payloads for up to ~5s; report instantaneous
+   throughput while reading and return the fastest sustained transfer. */
+async function cfDownload(signal, onTick) {
+  const BUDGET_MS = 5000;
+  const sizes = [2e6, 10e6, 25e6, 50e6];
+  const speeds = [];
+  const t0 = performance.now();
+  for (const size of sizes) {
+    const f0 = performance.now();
+    const res = await fetch(`${CF}/__down?bytes=${size}&r=${Date.now()}`, { signal, cache: 'no-store' });
+    const reader = res.body.getReader();
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      const el = (performance.now() - f0) / 1000;
+      if (el > 0.12) onTick((received * 8 / 1e6) / el, clamp((performance.now() - t0) / BUDGET_MS, 0, 1));
+    }
+    const el = (performance.now() - f0) / 1000;
+    if (el > 0.05) speeds.push((received * 8 / 1e6) / el);
+    if (performance.now() - t0 > BUDGET_MS) break;
+  }
+  if (!speeds.length) throw new Error('no download samples');
+  return Math.max(...speeds);
+}
+
+/* POST 5 MB and time it; XHR gives us upload progress events for the gauge. */
+function cfUpload(signal, onTick) {
+  return new Promise((resolve, reject) => {
+    const size = 5e6;
+    const payload = new Blob([new Uint8Array(size)]);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${CF}/__up?r=${Date.now()}`);
+    signal.addEventListener('abort', () => xhr.abort());
+    const t0 = performance.now();
+    xhr.upload.onprogress = (e) => {
+      const el = (performance.now() - t0) / 1000;
+      if (el > 0.12 && e.loaded) onTick((e.loaded * 8 / 1e6) / el, clamp(el / 4, 0, 1));
+    };
+    xhr.onload = () => {
+      const el = (performance.now() - t0) / 1000;
+      el > 0 ? resolve((size * 8 / 1e6) / el) : reject(new Error('upload too fast to time'));
+    };
+    xhr.onerror = () => reject(new Error('upload failed'));
+    xhr.onabort = () => reject(new DOMException('aborted', 'AbortError'));
+    xhr.send(payload);
+  });
 }
 
 function setActiveTile(which) {
@@ -1293,7 +1428,7 @@ function runTestAnimation(target) {
 }
 
 function finishTest(target) {
-  currentTest.done = true;
+  Object.assign(currentTest, target, { done: true });
   $('m-ping').textContent = target.ping;
   $('m-down').textContent = target.down;
   $('m-up').textContent = target.up;
@@ -1315,16 +1450,18 @@ function finishTest(target) {
 
 function closeSpeedtest(save) {
   cancelAnimationFrame(testRaf);
+  if (liveAbort) liveAbort.abort();
   if (save && currentTest && currentTest.done) {
     const room = $('st-room').value.trim() || `Spot ${state.pins.length + 1}`;
     if (currentTest.replaceId) {
       const pin = state.pins.find(p => p.id === currentTest.replaceId);
-      if (pin) Object.assign(pin, { room, ping: currentTest.ping, down: currentTest.down, up: currentTest.up });
+      if (pin) Object.assign(pin, { room, ping: currentTest.ping, down: currentTest.down, up: currentTest.up, source: currentTest.source });
     } else {
       state.pins.push({
         id: 'pin-' + Date.now().toString(36),
         x: currentTest.x, y: currentTest.y, room,
         ping: currentTest.ping, down: currentTest.down, up: currentTest.up,
+        source: currentTest.source,
       });
     }
     renderPins();
@@ -1413,6 +1550,11 @@ function renderCertificate() {
   $('cert-avg-down').textContent = avgDown;
   $('cert-avg-up').textContent = avgUp;
   $('cert-avg-ping').textContent = avgPing;
+
+  const allLive = pins.length > 0 && pins.every(p => p.source === 'live');
+  $('cert-method').innerHTML = `<i data-lucide="badge-check" class="h-4 w-4 text-emerald-600"></i> ${allLive
+    ? 'Measured on-site via Cloudflare’s global speed test network.'
+    : 'Measured on-site with WiFiMap signal mapping technology.'}`;
 
   // stars
   const stars = starsFor(avgDown);

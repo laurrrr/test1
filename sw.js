@@ -1,5 +1,5 @@
 /* WiFiMap service worker — app-shell caching for offline use. */
-const CACHE = 'wifimap-v2';
+const CACHE = 'wifimap-v3';
 const SHELL = [
   './',
   './index.html',
@@ -26,6 +26,9 @@ self.addEventListener('activate', (event) => {
 // (including CDN assets like Tailwind & Lucide) so the app works offline.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Never intercept or cache speed-test traffic — cached responses would
+  // produce wildly wrong measurements.
+  if (event.request.url.includes('speed.cloudflare.com')) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

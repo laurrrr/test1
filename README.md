@@ -6,8 +6,10 @@ WiFiMap is a single-page Progressive Web App that helps Airbnb hosts and
 co-working space owners map, certify, and monetize their internet speed by
 generating a visual Wi-Fi Quality Certificate for their listings.
 
-> All speed tests and the checkout flow are **simulated** for demonstration
-> purposes — no real network measurement or payment takes place.
+> **Live mode** (default) measures your real connection through Cloudflare's
+> public speed-test endpoints (`speed.cloudflare.com`). A **demo mode**
+> toggle switches to simulated values (also used automatically as an offline
+> fallback). The checkout flow is simulated — no real payment takes place.
 
 ## Features
 
@@ -18,8 +20,12 @@ generating a visual Wi-Fi Quality Certificate for their listings.
   grid-snapped rooms, name them, place the router (simulated speeds decay
   with distance from it), with undo/clear. Touch-friendly.
 - **Interactive mapping canvas** — tap/click anywhere on the floor plan to
-  drop a pin and run an animated speed-test simulation (ping, download,
-  upload over ~3.8 s). Pins and their signal halo are color-coded:
+  drop a pin and run a speed test (ping, download, upload with a live
+  animated gauge). **Live mode** measures your actual connection via
+  Cloudflare (latency = median of timed requests; download = streamed
+  payloads up to 50 MB over a ~5 s budget; upload = timed 5 MB POST).
+  **Demo mode** simulates speeds that decay with distance from the router.
+  Pins and their signal halo are color-coded:
   - 🟢 **Green** — 100+ Mbps (excellent for 4K streaming / remote work)
   - 🟡 **Yellow** — 30–99 Mbps (good for general use)
   - 🔴 **Red** — under 30 Mbps (poor connection)
