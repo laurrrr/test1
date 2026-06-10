@@ -84,6 +84,10 @@
         <button id="btn-install" class="hidden items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20">
           <i data-lucide="download" class="h-3.5 w-3.5"></i> Install App
         </button>
+        <span id="admin-chip" class="hidden rounded-full border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-[10px] font-extrabold tracking-wider text-violet-300">ADMIN</span>
+        <button onclick="showAdmin()" title="Admin panel" class="grid h-8 w-8 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-500 hover:text-violet-300">
+          <i data-lucide="shield" class="h-4 w-4"></i>
+        </button>
       </div>
     </div>
   </header>
@@ -126,7 +130,7 @@
       </div>
 
       <!-- Start options -->
-      <div id="start-options" class="mt-12 grid gap-4 sm:grid-cols-2">
+      <div id="start-options" class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <button onclick="document.getElementById('file-input').click()" class="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-left transition hover:border-cyan-500/50 hover:bg-slate-900">
           <span class="grid h-12 w-12 place-items-center rounded-xl bg-cyan-500/10 text-cyan-400 transition group-hover:scale-110">
             <i data-lucide="image-plus" class="h-6 w-6"></i>
@@ -142,6 +146,14 @@
           <h3 class="mt-4 text-lg font-bold">Use a default template</h3>
           <p class="mt-1 text-sm text-slate-400">Start instantly with a standard 3-room apartment layout — living room, bedroom, workspace, kitchen &amp; bath.</p>
           <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-400">Start mapping <i data-lucide="arrow-right" class="h-4 w-4"></i></span>
+        </button>
+        <button onclick="openBuilder()" class="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-left transition hover:border-violet-500/50 hover:bg-slate-900 sm:col-span-2 lg:col-span-1">
+          <span class="grid h-12 w-12 place-items-center rounded-xl bg-violet-500/10 text-violet-400 transition group-hover:scale-110">
+            <i data-lucide="pencil-ruler" class="h-6 w-6"></i>
+          </span>
+          <h3 class="mt-4 text-lg font-bold">Draw your floor plan</h3>
+          <p class="mt-1 text-sm text-slate-400">No image handy? Sketch your rooms directly in the built-in map creator and place your router.</p>
+          <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-violet-400">Open map creator <i data-lucide="arrow-right" class="h-4 w-4"></i></span>
         </button>
       </div>
       <input id="file-input" type="file" accept="image/*" class="hidden" />
@@ -358,6 +370,132 @@
         The preview is watermarked. Purchase the official certificate to remove the watermark and download a print-ready PDF.
       </p>
     </section>
+
+    <!-- ============ VIEW: MAP CREATOR ============ -->
+    <section id="view-builder" class="hidden">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button onclick="goHome()" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-100"><i data-lucide="arrow-left" class="h-4 w-4"></i></button>
+          <div>
+            <h2 class="text-lg font-bold leading-tight">Map creator</h2>
+            <p class="text-xs text-slate-400">Drag on the canvas to draw rooms, then place your router.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="builder-counter" class="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300">0 rooms</span>
+          <button id="btn-use-plan" onclick="useBuilderPlan()" disabled
+            class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0">
+            <i data-lucide="check" class="h-4 w-4"></i> Use this floor plan
+          </button>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-4">
+        <!-- tools -->
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <button id="tool-room" onclick="setBuilderTool('room')" class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold">
+            <i data-lucide="square-dashed" class="h-3.5 w-3.5"></i> Draw room
+          </button>
+          <button id="tool-router" onclick="setBuilderTool('router')" class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold">
+            <i data-lucide="router" class="h-3.5 w-3.5"></i> Place router
+          </button>
+          <span class="mx-1 h-5 w-px bg-slate-800"></span>
+          <button onclick="builderUndo()" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500">
+            <i data-lucide="undo-2" class="h-3.5 w-3.5"></i> Undo
+          </button>
+          <button onclick="builderClear()" class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10">
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Clear
+          </button>
+          <p id="builder-hint" class="ml-auto text-xs text-slate-500"></p>
+        </div>
+        <div id="builder-canvas" class="relative select-none overflow-hidden rounded-xl border border-slate-800 bg-slate-950" style="touch-action:none; cursor:crosshair"></div>
+        <p class="mt-3 text-xs text-slate-500">
+          <i data-lucide="lightbulb" class="inline h-3.5 w-3.5 -mt-0.5 text-amber-400"></i>
+          Rooms snap to the grid. Draw at least one room (we recommend 3+) and place the router where it actually sits — simulated speeds decay with distance from it.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: ADMIN ============ -->
+    <section id="view-admin" class="hidden">
+      <div class="mb-5 flex items-center gap-3">
+        <button onclick="goHome()" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-100"><i data-lucide="arrow-left" class="h-4 w-4"></i></button>
+        <div>
+          <h2 class="flex items-center gap-2 text-lg font-bold leading-tight"><i data-lucide="shield" class="h-5 w-5 text-violet-400"></i> Admin panel</h2>
+          <p class="text-xs text-slate-400">Internal tools — certificate downloads here skip the paywall.</p>
+        </div>
+      </div>
+
+      <!-- Gate -->
+      <div id="admin-gate" class="mx-auto max-w-sm rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-center">
+        <span class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-violet-500/10">
+          <i data-lucide="key-round" class="h-6 w-6 text-violet-400"></i>
+        </span>
+        <h3 class="mt-4 font-bold">Restricted area</h3>
+        <p class="mt-1 text-sm text-slate-400">Enter the admin passcode to continue.</p>
+        <input id="admin-pass" type="password" placeholder="Passcode" onkeydown="if(event.key==='Enter')adminLogin()"
+          class="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-center text-sm font-semibold outline-none focus:border-violet-500 focus:ring-2 ring-violet-500/40" />
+        <button onclick="adminLogin()" class="mt-3 w-full rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:brightness-110">Unlock admin</button>
+        <p class="mt-3 text-[11px] text-slate-600">Demo build — the passcode is <code class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-400">admin</code></p>
+      </div>
+
+      <!-- Panel -->
+      <div id="admin-panel" class="hidden">
+        <div class="grid gap-3 sm:grid-cols-4">
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Pins mapped</p>
+            <p id="adm-pins" class="mt-1 text-2xl font-extrabold text-cyan-400">0</p>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Avg download</p>
+            <p class="mt-1 text-2xl font-extrabold text-emerald-400"><span id="adm-avg">—</span><span class="text-sm font-semibold text-slate-500"> Mbps</span></p>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Certificate</p>
+            <p id="adm-cert" class="mt-1 text-2xl font-extrabold text-slate-300">—</p>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Revenue (mock)</p>
+            <p id="adm-revenue" class="mt-1 text-2xl font-extrabold text-amber-400">$0</p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+          <!-- Paywall bypass -->
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="ticket-x" class="h-4 w-4 text-violet-400"></i> Paywall bypass</h3>
+            <p class="mt-1 text-xs text-slate-400">While enabled, certificates render without the watermark and download for free — no checkout.</p>
+            <button id="adm-toggle" onclick="toggleAdminMode()" class="mt-4 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold"></button>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button id="adm-open-cert" onclick="adminOpenCertificate()" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0">
+                <i data-lucide="award" class="h-4 w-4"></i> Open certificate (no paywall)
+              </button>
+              <button onclick="state.plan ? showMapping() : goHome()" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500">
+                <i data-lucide="map" class="h-4 w-4"></i> Open map
+              </button>
+            </div>
+            <p id="adm-cert-note" class="mt-2 text-[11px] text-slate-500"></p>
+          </div>
+
+          <!-- Session / danger zone -->
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="database" class="h-4 w-4 text-cyan-400"></i> Current session</h3>
+            <dl class="mt-3 space-y-1.5 text-sm">
+              <div class="flex justify-between"><dt class="text-slate-500">Property</dt><dd id="adm-property" class="font-semibold">—</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Floor plan</dt><dd id="adm-plan" class="font-semibold">—</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Paid (checkout)</dt><dd id="adm-paid" class="font-semibold">—</dd></div>
+              <div class="flex justify-between"><dt class="text-slate-500">Certificate ID</dt><dd id="adm-certid" class="font-mono text-xs font-semibold">—</dd></div>
+            </dl>
+            <div class="mt-4 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+              <p class="text-xs font-bold text-red-400">Danger zone</p>
+              <button onclick="adminReset()" class="mt-2 inline-flex items-center gap-2 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Reset all app data
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="no-print border-t border-slate-900 py-5 text-center text-xs text-slate-600">
@@ -448,6 +586,20 @@
   </div>
 </div>
 
+<!-- ============ MODAL: ROOM NAME (map creator) ============ -->
+<div id="modal-roomname" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4 modal-backdrop">
+  <div class="w-full max-w-sm animate-fadeUp rounded-t-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl sm:rounded-2xl">
+    <h3 class="flex items-center gap-2 text-sm font-bold"><i data-lucide="square-dashed" class="h-4 w-4 text-violet-400"></i> Name this room</h3>
+    <input id="rn-input" type="text" placeholder="e.g. Living Room" onkeydown="if(event.key==='Enter')saveRoomName()"
+      class="mt-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold outline-none focus:border-violet-500 focus:ring-2 ring-violet-500/40" />
+    <div id="rn-chips" class="mt-2 flex flex-wrap gap-1.5"></div>
+    <div class="mt-4 flex gap-2">
+      <button onclick="cancelRoomName()" class="flex-1 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500">Cancel</button>
+      <button onclick="saveRoomName()" class="flex-1 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:brightness-110">Add room</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL: CHECKOUT ============ -->
 <div id="modal-checkout" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-950/80 p-0 sm:items-center sm:p-4 modal-backdrop">
   <div class="w-full max-w-md animate-fadeUp rounded-t-2xl border border-slate-800 bg-slate-900 shadow-2xl sm:rounded-2xl overflow-hidden">
@@ -533,10 +685,11 @@ const GAUGE_LEN = 251.4;
 
 const state = {
   view: 'welcome',
-  plan: null,            // { type: 'template' } | { type: 'image', src: dataURL }
+  plan: null,            // { type: 'template' } | { type: 'image', src } | { type: 'custom', rooms, router }
   pins: [],              // { id, x, y (percent), room, ping, down, up }
   locked: false,
   paid: false,
+  adminMode: false,      // paywall bypass, toggled from the admin panel
   propertyName: 'Cozy Downtown Apartment',
   certDate: null,
   certId: null,
@@ -570,7 +723,12 @@ function speedColor(down) {
 }
 
 /* Simulated signal model: speed decays with distance from the router. */
-function routerPos() { return { x: 48.75, y: 44.6 }; }
+function routerPos() {
+  if (state.plan && state.plan.type === 'custom' && state.plan.router) {
+    return { x: state.plan.router.x / 8, y: state.plan.router.y / 5.6 };  // viewBox 800x560 → percent
+  }
+  return { x: 48.75, y: 44.6 };
+}
 
 function signalAt(x, y) {
   const r = routerPos();
@@ -586,6 +744,7 @@ function persist() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       plan: state.plan, pins: state.pins, locked: state.locked, paid: state.paid,
+      adminMode: state.adminMode,
       propertyName: state.propertyName, certDate: state.certDate, certId: state.certId,
       savedAt: Date.now(),
     }));
@@ -601,8 +760,10 @@ function resumeSession() {
   if (!s || !s.plan) return;
   Object.assign(state, {
     plan: s.plan, pins: s.pins || [], locked: !!s.locked, paid: !!s.paid,
+    adminMode: !!s.adminMode,
     propertyName: s.propertyName || state.propertyName, certDate: s.certDate, certId: s.certId,
   });
+  updateAdminChip();
   $('property-name').value = state.propertyName;
   state.locked ? showCertificate() : showMapping();
 }
@@ -616,10 +777,10 @@ function discardSession() {
 /* ---------- views ---------- */
 function showView(name) {
   state.view = name;
-  for (const v of ['welcome', 'mapping', 'certificate']) {
+  for (const v of ['welcome', 'mapping', 'certificate', 'builder', 'admin']) {
     $('view-' + v).classList.toggle('hidden', v !== name);
   }
-  const labels = { welcome: 'Dashboard', mapping: 'Mapping mode', certificate: 'Certificate' };
+  const labels = { welcome: 'Dashboard', mapping: 'Mapping mode', certificate: 'Certificate', builder: 'Map creator', admin: 'Admin' };
   $('header-status-text').textContent = labels[name];
   $('header-status').classList.remove('hidden');
   window.scrollTo({ top: 0 });
@@ -732,6 +893,243 @@ function cancelUpload() {
   $('file-input').value = '';
 }
 
+/* ---------- map creator (builder) ---------- */
+const builder = { rooms: [], router: null, tool: 'room', drag: null, pendingRoom: null };
+
+/* Blueprint-style SVG for custom plans (viewBox 800x560). `extra` lets the
+   builder overlay its in-progress drag rectangle. */
+function buildPlanSvg(rooms, router, extra = '') {
+  const roomsSvg = (rooms || []).map(r => `
+    <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2" fill="rgba(103,183,232,.05)" stroke="#67b7e8" stroke-width="4"/>
+    <text x="${r.x + r.w / 2}" y="${r.y + r.h / 2 + 6}" text-anchor="middle" fill="#7da8c9" font-size="16" font-weight="700" letter-spacing="2" font-family="ui-sans-serif,system-ui">${escapeHtml(r.name.toUpperCase())}</text>`).join('');
+  const routerSvg = router ? `
+    <g transform="translate(${router.x} ${router.y})">
+      <circle r="11" fill="#22d3ee"/>
+      <circle r="11" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".45">
+        <animate attributeName="r" values="11;24" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values=".45;0" dur="1.8s" repeatCount="indefinite"/>
+      </circle>
+      <path d="M-5 1 a7 7 0 0 1 10 0 M-2 4 a3 3 0 0 1 4 0" stroke="#06303d" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <text y="32" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700" font-family="ui-sans-serif,system-ui">ROUTER</text>
+    </g>` : '';
+  return `
+<svg viewBox="0 0 800 560" class="block h-auto w-full" role="img" aria-label="Custom floor plan">
+  <defs>
+    <pattern id="cp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M20 0H0V20" fill="none" stroke="#13283f" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="560" fill="#081526"/>
+  <rect width="800" height="560" fill="url(#cp-grid)"/>
+  <rect x="4" y="4" width="792" height="552" fill="none" stroke="#1d3a57" stroke-width="2"/>
+  ${roomsSvg}${routerSvg}${extra}
+</svg>`;
+}
+
+function openBuilder() {
+  builder.rooms = [];
+  builder.router = null;
+  builder.drag = null;
+  builder.pendingRoom = null;
+  showView('builder');
+  setBuilderTool('room');
+}
+
+function setBuilderTool(tool) {
+  builder.tool = tool;
+  for (const t of ['room', 'router']) {
+    const active = t === tool;
+    $('tool-' + t).className = `inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold ${active
+      ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+      : 'border-slate-700 text-slate-400 hover:border-slate-500'}`;
+  }
+  $('builder-hint').textContent = tool === 'room' ? 'Drag diagonally to draw a room' : 'Tap to place the router';
+  renderBuilder();
+}
+
+function builderCoords(e) {
+  const rect = $('builder-canvas').getBoundingClientRect();
+  const x = clamp((e.clientX - rect.left) / rect.width * 800, 0, 800);
+  const y = clamp((e.clientY - rect.top) / rect.height * 560, 0, 560);
+  return { x: Math.round(x / 20) * 20, y: Math.round(y / 20) * 20 };
+}
+
+function renderBuilder() {
+  let extra = '';
+  if (builder.drag) {
+    const d = builder.drag;
+    const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
+    const w = Math.abs(d.x1 - d.x0), h = Math.abs(d.y1 - d.y0);
+    extra = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(139,92,246,.12)" stroke="#a78bfa" stroke-width="3" stroke-dasharray="8 6"/>`;
+  }
+  if (builder.rooms.length === 0 && !builder.drag) {
+    extra += `<text x="400" y="285" text-anchor="middle" fill="#33536f" font-size="20" font-weight="700" font-family="ui-sans-serif,system-ui">DRAG TO DRAW YOUR FIRST ROOM</text>`;
+  }
+  $('builder-canvas').innerHTML = buildPlanSvg(builder.rooms, builder.router, extra);
+  const n = builder.rooms.length;
+  $('builder-counter').textContent = `${n} room${n === 1 ? '' : 's'}`;
+  $('btn-use-plan').disabled = n < 1;
+}
+
+function onBuilderDown(e) {
+  if (state.view !== 'builder') return;
+  e.preventDefault();
+  const p = builderCoords(e);
+  if (builder.tool === 'router') {
+    builder.router = p;
+    renderBuilder();
+    toast('Router placed');
+    return;
+  }
+  builder.drag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+  $('builder-canvas').setPointerCapture(e.pointerId);
+  renderBuilder();
+}
+
+function onBuilderMove(e) {
+  if (!builder.drag) return;
+  const p = builderCoords(e);
+  builder.drag.x1 = p.x;
+  builder.drag.y1 = p.y;
+  renderBuilder();
+}
+
+function onBuilderUp() {
+  if (!builder.drag) return;
+  const d = builder.drag;
+  builder.drag = null;
+  const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
+  const w = Math.abs(d.x1 - d.x0), h = Math.abs(d.y1 - d.y0);
+  if (w < 40 || h < 40) { renderBuilder(); return; }  // too small — treat as accidental tap
+  builder.pendingRoom = { x, y, w, h };
+  $('rn-input').value = '';
+  $('rn-chips').innerHTML = ['Living Room', 'Bedroom 1', 'Bedroom 2', 'Workspace', 'Kitchen', 'Bath', 'Balcony']
+    .map(r => `<button onclick="document.getElementById('rn-input').value='${r}'" class="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:border-violet-500 hover:text-violet-300">${r}</button>`).join('');
+  openModal('modal-roomname');
+  $('rn-input').focus();
+  renderBuilder();
+}
+
+function saveRoomName() {
+  if (!builder.pendingRoom) { closeModal('modal-roomname'); return; }
+  const name = $('rn-input').value.trim() || `Room ${builder.rooms.length + 1}`;
+  builder.rooms.push({ ...builder.pendingRoom, name });
+  builder.pendingRoom = null;
+  closeModal('modal-roomname');
+  renderBuilder();
+}
+
+function cancelRoomName() {
+  builder.pendingRoom = null;
+  closeModal('modal-roomname');
+  renderBuilder();
+}
+
+function builderUndo() {
+  if (builder.rooms.length) builder.rooms.pop();
+  else if (builder.router) builder.router = null;
+  renderBuilder();
+}
+
+function builderClear() {
+  builder.rooms = [];
+  builder.router = null;
+  renderBuilder();
+  toast('Canvas cleared');
+}
+
+function useBuilderPlan() {
+  if (builder.rooms.length < 1) return;
+  state.plan = { type: 'custom', rooms: builder.rooms.map(r => ({ ...r })), router: builder.router ? { ...builder.router } : null };
+  state.pins = [];
+  state.locked = false;
+  state.paid = false;
+  state.certDate = null;
+  state.certId = null;
+  showMapping();
+  toast(builder.router ? 'Custom plan ready — tap a room to test' : 'Custom plan ready (no router placed — assuming center)');
+}
+
+/* ---------- admin ---------- */
+const ADMIN_PASS = 'admin';
+let adminAuthed = sessionStorage.getItem('wifimap-admin') === '1';
+
+function showAdmin() {
+  showView('admin');
+  renderAdmin();
+}
+
+function adminLogin() {
+  if ($('admin-pass').value.trim().toLowerCase() === ADMIN_PASS) {
+    adminAuthed = true;
+    sessionStorage.setItem('wifimap-admin', '1');
+    toast('Admin unlocked');
+    renderAdmin();
+  } else {
+    toast('Wrong passcode');
+  }
+  $('admin-pass').value = '';
+}
+
+function updateAdminChip() {
+  $('admin-chip').classList.toggle('hidden', !state.adminMode);
+}
+
+function renderAdmin() {
+  $('admin-gate').classList.toggle('hidden', adminAuthed);
+  $('admin-panel').classList.toggle('hidden', !adminAuthed);
+  if (!adminAuthed) { refreshIcons(); return; }
+
+  const pins = state.pins;
+  $('adm-pins').textContent = pins.length;
+  $('adm-avg').textContent = pins.length ? Math.round(pins.reduce((s, p) => s + p.down, 0) / pins.length) : '—';
+  $('adm-cert').textContent = state.certDate ? 'Issued' : '—';
+  $('adm-revenue').textContent = state.paid ? '$5' : '$0';
+  $('adm-property').textContent = state.propertyName || '—';
+  $('adm-plan').textContent = state.plan ? ({ template: 'Template', image: 'Uploaded image', custom: 'Custom (map creator)' })[state.plan.type] : 'None';
+  $('adm-paid').textContent = state.paid ? 'Yes' : 'No';
+  $('adm-certid').textContent = state.certId || '—';
+
+  const t = $('adm-toggle');
+  t.className = `mt-4 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold ${state.adminMode
+    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
+    : 'border-slate-700 text-slate-300 hover:border-slate-500'}`;
+  t.innerHTML = state.adminMode
+    ? '<i data-lucide="toggle-right" class="h-5 w-5"></i> Bypass enabled — certificates are free'
+    : '<i data-lucide="toggle-left" class="h-5 w-5"></i> Bypass disabled — enable free downloads';
+
+  const canCert = state.plan && state.pins.length >= 3;
+  $('adm-open-cert').disabled = !canCert;
+  $('adm-cert-note').textContent = canCert ? '' : 'Needs an active floor plan with at least 3 tested pins.';
+  refreshIcons();
+}
+
+function toggleAdminMode() {
+  state.adminMode = !state.adminMode;
+  persist();
+  updateAdminChip();
+  renderAdmin();
+  toast(state.adminMode ? 'Paywall bypass ON' : 'Paywall bypass OFF');
+}
+
+function adminOpenCertificate() {
+  if (!state.plan || state.pins.length < 3) return;
+  if (!state.adminMode) { state.adminMode = true; updateAdminChip(); }
+  state.locked = true;
+  state.certDate = state.certDate || new Date().toISOString();
+  state.certId = state.certId || ('WFM-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase());
+  showCertificate();
+}
+
+function adminReset() {
+  localStorage.removeItem(STORAGE_KEY);
+  Object.assign(state, { plan: null, pins: [], locked: false, paid: false, adminMode: false, certDate: null, certId: null, propertyName: 'Cozy Downtown Apartment' });
+  $('property-name').value = state.propertyName;
+  updateAdminChip();
+  renderAdmin();
+  toast('All app data reset');
+}
+
 /* ---------- mapping ---------- */
 function showMapping() {
   showView('mapping');
@@ -740,14 +1138,17 @@ function showMapping() {
   updateToolbar();
 }
 
+/* Markup for the current floor plan, reused by the map and the certificate. */
+function planMarkup() {
+  if (!state.plan) return '';
+  if (state.plan.type === 'template') return TEMPLATE_SVG;
+  if (state.plan.type === 'custom') return buildPlanSvg(state.plan.rooms, state.plan.router);
+  return `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" draggable="false" />`;
+}
+
 function renderPlan() {
-  const holder = $('plan-holder');
   if (!state.plan) return;
-  if (state.plan.type === 'template') {
-    holder.innerHTML = TEMPLATE_SVG;
-  } else {
-    holder.innerHTML = `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" draggable="false" />`;
-  }
+  $('plan-holder').innerHTML = planMarkup();
   $('map-wrap').classList.toggle('locked', state.locked);
 }
 
@@ -1027,7 +1428,7 @@ function renderCertificate() {
   const certMap = $('cert-map');
   certMap.innerHTML = `
     <div class="relative">
-      ${state.plan.type === 'template' ? TEMPLATE_SVG : `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" />`}
+      ${planMarkup()}
       <div class="absolute inset-0">${pins.map((p, i) => pinMarkup(p, i, false)).join('')}</div>
     </div>`;
 
@@ -1045,24 +1446,27 @@ function renderCertificate() {
       </tr>`;
   }).join('');
 
-  // watermark + download button state
+  // watermark + download button state (admin mode bypasses the paywall)
   const wm = $('cert-watermark');
-  if (state.paid) {
+  if (state.paid || state.adminMode) {
     wm.innerHTML = '';
     wm.style.display = 'none';
-    $('btn-download-label').textContent = 'Download / Print Certificate';
-    $('watermark-note').innerHTML = `<i data-lucide="badge-check" class="inline h-3.5 w-3.5 -mt-0.5 text-emerald-400"></i> Official certificate unlocked — watermark removed. Use your browser's print dialog to save as PDF.`;
+    $('btn-download-label').textContent = state.paid ? 'Download / Print Certificate' : 'Download PDF (Admin — free)';
+    $('watermark-note').innerHTML = state.paid
+      ? `<i data-lucide="badge-check" class="inline h-3.5 w-3.5 -mt-0.5 text-emerald-400"></i> Official certificate unlocked — watermark removed. Use your browser's print dialog to save as PDF.`
+      : `<i data-lucide="shield" class="inline h-3.5 w-3.5 -mt-0.5 text-violet-400"></i> Admin paywall bypass active — watermark removed, downloads are free.`;
   } else {
     wm.style.display = 'flex';
     wm.innerHTML = Array.from({ length: 12 }, () => '<span>WIFIMAP · PREVIEW</span>').join('');
     $('btn-download-label').textContent = 'Download Official PDF ($5)';
+    $('watermark-note').innerHTML = `<i data-lucide="info" class="inline h-3.5 w-3.5 -mt-0.5"></i> The preview is watermarked. Purchase the official certificate to remove the watermark and download a print-ready PDF.`;
   }
   refreshIcons();
 }
 
 /* ---------- checkout ---------- */
 function onDownloadClick() {
-  if (state.paid) { window.print(); return; }
+  if (state.paid || state.adminMode) { window.print(); return; }
   $('checkout-form').classList.remove('hidden');
   $('checkout-processing').classList.add('hidden');
   $('checkout-success').classList.add('hidden');
@@ -1106,6 +1510,12 @@ function closeModal(id) {
 /* ---------- wiring ---------- */
 $('map-wrap').addEventListener('click', onMapTap);
 
+const builderCanvas = $('builder-canvas');
+builderCanvas.addEventListener('pointerdown', onBuilderDown);
+builderCanvas.addEventListener('pointermove', onBuilderMove);
+builderCanvas.addEventListener('pointerup', onBuilderUp);
+builderCanvas.addEventListener('pointercancel', () => { builder.drag = null; renderBuilder(); });
+
 $('file-input').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -1139,17 +1549,19 @@ $('cc-cvc').addEventListener('input', (e) => {
 });
 
 // Close modals on backdrop click / Escape
-for (const id of ['modal-speedtest', 'modal-pin', 'modal-checkout']) {
+for (const id of ['modal-speedtest', 'modal-pin', 'modal-checkout', 'modal-roomname']) {
   $(id).addEventListener('click', (e) => {
     if (e.target.id !== id) return;
     if (id === 'modal-speedtest') closeSpeedtest(false);
     else if (id === 'modal-pin') closePinModal();
+    else if (id === 'modal-roomname') cancelRoomName();
     else closeCheckout();
   });
 }
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   closeSpeedtest(false); closePinModal(); closeCheckout();
+  if (!$('modal-roomname').classList.contains('hidden')) cancelRoomName();
 });
 
 // PWA install prompt
@@ -1175,6 +1587,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
 // Init
 checkResumeBanner();
+updateAdminChip();
+if (location.hash === '#admin') showAdmin();
+window.addEventListener('hashchange', () => { if (location.hash === '#admin') showAdmin(); });
 window.addEventListener('DOMContentLoaded', refreshIcons);
 window.addEventListener('load', refreshIcons);
 </script>

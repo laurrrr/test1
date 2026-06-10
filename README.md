@@ -11,9 +11,12 @@ generating a visual Wi-Fi Quality Certificate for their listings.
 
 ## Features
 
-- **Welcome dashboard** with two ways to start: upload your own floor plan
-  image (with preview) or use a built-in 3-room apartment template (SVG
-  blueprint), instantly usable with sample demo data.
+- **Welcome dashboard** with three ways to start: upload your own floor plan
+  image (with preview), use a built-in 3-room apartment template (SVG
+  blueprint, instantly usable with sample demo data), or draw your own plan.
+- **Map creator** — sketch your floor plan directly in the app: drag to draw
+  grid-snapped rooms, name them, place the router (simulated speeds decay
+  with distance from it), with undo/clear. Touch-friendly.
 - **Interactive mapping canvas** — tap/click anywhere on the floor plan to
   drop a pin and run an animated speed-test simulation (ping, download,
   upload over ~3.8 s). Pins and their signal halo are color-coded:
@@ -29,6 +32,10 @@ generating a visual Wi-Fi Quality Certificate for their listings.
 - **Simulated paywall** — a Stripe-style checkout modal ("Pay $5") that, on
   success, removes the preview watermark and triggers the browser print
   dialog so the certificate can be saved as a PDF.
+- **Admin panel** — open it from the shield icon in the header or via the
+  `#admin` URL hash (demo passcode: `admin`). Shows session stats and a
+  **paywall bypass** toggle: while enabled, certificates render without the
+  watermark and download for free, no checkout. Includes a data-reset tool.
 - **PWA** — installable, offline-capable via a service worker, fully
   responsive and touch-friendly for walking around the property with a phone.
 - **Persistence** — sessions are auto-saved to `localStorage` and can be
