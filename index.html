@@ -306,21 +306,29 @@
 
           <!-- Per-room table -->
           <div class="mt-5 overflow-x-auto">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Speed by location</p>
-            <table class="w-full min-w-[560px] text-sm">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Speed &amp; Wi-Fi by location</p>
+            <table class="w-full min-w-[640px] text-sm">
               <thead>
                 <tr class="border-b-2 border-slate-200 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   <th class="py-2 pr-2">#</th>
                   <th class="py-2 pr-2">Room / Location</th>
                   <th class="py-2 pr-2 text-right">Ping</th>
+                  <th class="py-2 pr-2 text-right">Jitter</th>
                   <th class="py-2 pr-2 text-right">Download</th>
                   <th class="py-2 pr-2 text-right">Upload</th>
-                  <th class="py-2 pr-2 text-right">Signal</th>
-                  <th class="py-2 text-right">Quality</th>
+                  <th class="py-2 text-right">Signal &amp; band</th>
+                  <th class="py-2 pl-2 text-right">Quality</th>
                 </tr>
               </thead>
               <tbody id="cert-table"></tbody>
             </table>
+          </div>
+
+          <!-- Network details (populated only when data is available) -->
+          <div id="cert-network-wrap" class="mt-5 hidden">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Network &amp; connection details</p>
+            <div id="cert-network" class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3"></div>
+            <p id="cert-network-note" class="mt-2 text-[11px] text-slate-400"></p>
           </div>
 
           <!-- Footer -->

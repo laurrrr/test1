@@ -37,13 +37,17 @@ test each room, and generate a shareable Wi-Fi Quality Certificate.
   - 🔴 **Red** — under 30 Mbps (poor connection)
 - **Per-scan details** — the initial test shows only **ping, download and
   upload**. The richer diagnostics (jitter, signal strength in dBm, band,
-  channel, channel width, security, link speed, ISP, test server, …) are
-  captured on each pin but **unlock once you generate the certificate** —
-  then they appear in the pin inspector and as signal/band/channel per room
-  on the certificate. Browser scans mark radio fields *est.* (browsers can't
-  read real radio data); the native apps report them for real.
-- **Network-name autocomplete** — the SSID field suggests networks you’ve
-  used before (kept in `localStorage`); the native apps prefill the real one.
+  channel, channel width, security, link speed, Wi-Fi standard, ISP, test
+  server, …) are captured on each pin but **unlock once you generate the
+  certificate**. They then appear both in the pin inspector and **on the
+  certificate itself**: per-location ping/jitter/down/up/signal·band·channel·
+  width in the table, plus a **Network &amp; connection details** panel
+  (SSID, security, standard, bands, channels, link speed, BSSID, ISP, test
+  server). Browser scans mark radio fields *est.* (browsers can't read real
+  radio data); the native apps report them for real.
+- **Network-name autocomplete &amp; auto-collect** — the SSID field suggests
+  networks you’ve used before (kept in `localStorage`), and the native apps
+  read the real connected SSID straight from the Wi-Fi bridge and fill it in.
 - **Pin management** — name each location (Living Room, Workspace, …),
   inspect, re-test, or delete pins from the map or the sidebar list.
 - **Wi-Fi Quality Certificate** — unlocked after 3+ pins. Locks editing and

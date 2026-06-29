@@ -78,20 +78,52 @@ function renderCertificate() {
       <div class="absolute inset-0">${pins.map((p, i) => pinMarkup(p, i, false)).join('')}</div>
     </div>`;
 
-  // table
+  // table — per-location speed + Wi-Fi (signal cell carries band · channel · width)
   $('cert-table').innerHTML = pins.map((p, i) => {
     const c = speedColor(p.down);
+    const sub = [p.band, p.channel != null ? 'ch ' + p.channel : null, p.width]
+      .filter(Boolean).join(' · ');
     return `
       <tr class="border-b border-slate-100">
         <td class="py-2.5 pr-2 font-bold text-slate-400">${i + 1}</td>
         <td class="py-2.5 pr-2 font-semibold">${escapeHtml(p.room)}</td>
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.ping} ms</td>
+        <td class="py-2.5 pr-2 text-right tabular-nums">${p.jitter == null ? '—' : p.jitter + ' ms'}</td>
         <td class="py-2.5 pr-2 text-right font-bold tabular-nums">${p.down} Mbps</td>
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.up == null ? '—' : p.up + ' Mbps'}</td>
-        <td class="py-2.5 pr-2 text-right tabular-nums">${p.rssi != null ? `${p.rssi} dBm` : '—'}${p.band ? `<span class="block text-[10px] text-slate-400">${p.band} · ch ${p.channel}</span>` : ''}</td>
-        <td class="py-2.5 text-right"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold ${c.chip}">${c.name}</span></td>
+        <td class="py-2.5 text-right tabular-nums">${p.rssi != null ? `${p.rssi} dBm` : '—'}${sub ? `<span class="block text-[10px] text-slate-400">${escapeHtml(sub)}</span>` : ''}</td>
+        <td class="py-2.5 pl-2 text-right"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold ${c.chip}">${c.name}</span></td>
       </tr>`;
   }).join('');
+
+  // Network & connection details: network-level fields shared across pins.
+  const firstVal = (key) => { const hit = pins.find(p => p[key] != null && p[key] !== ''); return hit ? hit[key] : null; };
+  const uniq = (key) => [...new Set(pins.map(p => p[key]).filter(v => v != null && v !== ''))];
+  const net = [];
+  net.push(['Network (SSID)', escapeHtml(state.ssid || 'Home Wi-Fi')]);
+  if (firstVal('security')) net.push(['Security', escapeHtml(firstVal('security'))]);
+  if (firstVal('standard')) net.push(['Wi-Fi standard', escapeHtml(firstVal('standard'))]);
+  if (uniq('band').length) net.push(['Bands seen', escapeHtml(uniq('band').join(', '))]);
+  if (uniq('channel').length) net.push(['Channels', escapeHtml(uniq('channel').join(', '))]);
+  if (firstVal('linkSpeed')) net.push(['Link speed', firstVal('linkSpeed') + ' Mbps']);
+  if (firstVal('bssid')) net.push(['Access point (BSSID)', `<span class="font-mono">${escapeHtml(firstVal('bssid'))}</span>`]);
+  if (firstVal('isp')) net.push(['ISP', escapeHtml(firstVal('isp'))]);
+  if (firstVal('server')) net.push(['Test server', escapeHtml(firstVal('server'))]);
+  const wrap = $('cert-network-wrap');
+  if (net.length > 1) {
+    $('cert-network').innerHTML = net.map(([k, v]) => `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">${k}</p>
+        <p class="mt-0.5 font-semibold text-slate-800 break-words">${v}</p>
+      </div>`).join('');
+    const estimated = pins.some(p => !p.radioReal) && pins.some(p => p.source === 'live');
+    $('cert-network-note').textContent = estimated
+      ? 'Wi-Fi radio figures (signal, band, channel, width) are estimated from signal strength; speeds are measured.'
+      : '';
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+  }
 
   // watermark + download button state (admin mode bypasses the paywall)
   const wm = $('cert-watermark');

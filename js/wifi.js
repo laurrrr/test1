@@ -72,6 +72,21 @@ function nativeWifiInfo() {
   } catch (e) { return null; }
 }
 
+/* Read the connected network's SSID from the native Wi-Fi bridge and fill the
+   network-name field — so the real SSID is collected without waiting for a
+   scan. No-op (returns false) in a plain browser, which cannot read the SSID.
+   Returns true once a real name was applied. */
+function prefillSsidFromNative() {
+  const native = nativeWifiInfo();
+  if (!native || native.failed || !native.ssid) return false;
+  addSsidToHistory(native.ssid);
+  state.ssid = native.ssid;
+  const si = $('ssid-input');
+  if (si) si.value = native.ssid;
+  persist();
+  return true;
+}
+
 /* window.print() is a no-op in Android WebView; the bridge routes it to the
    system print dialog instead. */
 function doPrint() {
@@ -95,16 +110,19 @@ function deviceLink() {
   return parts.join(' · ') || null;
 }
 
-/* Shared key/value grid for the speedtest result and pin details modals.
-   Radio fields are real when captured through the native Android bridge
-   (badged "✓"); in the browser they come from the signal model and live
-   scans badge them "est." since browsers cannot read Wi-Fi radio data. */
-function scanDetailsHtml(p) {
-  const est = p.radioReal
-    ? ' <span class="text-[9px] text-emerald-500" title="Measured on-device via Android WifiManager">✓</span>'
-    : (p.source === 'live'
-      ? ' <span class="text-[9px] text-slate-600" title="Browsers cannot read Wi-Fi radio data — estimated from the signal model">est.</span>'
-      : '');
+/* Badge shown next to radio fields: "✓" when measured on-device by the
+   native bridge, "est." when a browser live scan modelled them (browsers
+   cannot read Wi-Fi radio data), nothing for demo scans. */
+function radioBadge(p) {
+  if (p.radioReal) return ' <span class="text-[9px] text-emerald-500" title="Measured on-device via the native Wi-Fi bridge">✓</span>';
+  if (p.source === 'live') return ' <span class="text-[9px] text-slate-500" title="Browsers cannot read Wi-Fi radio data — estimated from the signal model">est.</span>';
+  return '';
+}
+
+/* Shared key/value rows for a scan, as [label, valueHtml, badgeHtml].
+   Reused by the dark modals and the (light) certificate. */
+function scanDetailRows(p) {
+  const est = radioBadge(p);
   const sigPct = p.sigPct != null ? p.sigPct : (p.rssi != null ? clamp(Math.round(2 * (p.rssi + 100)), 0, 100) : null);
   const rows = [];
   rows.push(['Network (SSID)', escapeHtml(state.ssid || 'Home Wi-Fi'), p.radioReal ? est : '']);
@@ -121,6 +139,12 @@ function scanDetailsHtml(p) {
   if (p.isp) rows.push(['ISP', escapeHtml(p.isp), '']);
   if (p.server) rows.push(['Test server', escapeHtml(p.server), '']);
   if (p.netType) rows.push(['Device link', escapeHtml(p.netType), '']);
+  return rows;
+}
+
+/* Dark key/value grid for the speedtest result and pin details modals. */
+function scanDetailsHtml(p) {
+  const rows = scanDetailRows(p);
   if (rows.length <= 1) return '';
   return `<div class="grid grid-cols-2 gap-1.5 text-xs">` + rows.map(([k, v, badge]) => `
     <div class="flex items-baseline justify-between gap-2 rounded-lg bg-slate-950 px-2.5 py-1.5">

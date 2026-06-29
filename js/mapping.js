@@ -9,6 +9,9 @@ function showMapping() {
   updateTestModeBtn();
   $('ssid-input').value = state.ssid || '';
   renderSsidDatalist();
+  // Auto-collect the real SSID in the native apps (the snapshot may arrive a
+  // moment later on iOS, so retry once).
+  if (IS_NATIVE && !prefillSsidFromNative()) setTimeout(prefillSsidFromNative, 800);
 }
 
 function toggleTestMode() {
