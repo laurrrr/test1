@@ -92,6 +92,7 @@ async function startLiveTest(x, y) {
         liveTick('up', v, 150);
         setProgress(70 + frac * 30);
       })));
+      liveTick('up', up, 150);   // settle on the measured value
     } catch (e) {
       if (signal.aborted) throw e;   // user closed / watchdog — bail to outer catch
       console.warn('WiFiMap: upload step failed —', e);
@@ -172,27 +173,33 @@ async function cfDownload(signal, onTick) {
   return Math.max(...speeds);
 }
 
-/* POST 5 MB and time it; XHR gives us upload progress events for the gauge. */
-function cfUpload(signal, onTick) {
-  return new Promise((resolve, reject) => {
-    const size = 5e6;
-    const payload = new Blob([new Uint8Array(size)]);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${CF}/__up?r=${Date.now()}`);
-    signal.addEventListener('abort', () => xhr.abort());
-    const t0 = performance.now();
-    xhr.upload.onprogress = (e) => {
-      const el = (performance.now() - t0) / 1000;
-      if (el > 0.12 && e.loaded) onTick((e.loaded * 8 / 1e6) / el, clamp(el / 4, 0, 1));
-    };
-    xhr.onload = () => {
-      const el = (performance.now() - t0) / 1000;
-      el > 0 ? resolve((size * 8 / 1e6) / el) : reject(new Error('upload too fast to time'));
-    };
-    xhr.onerror = () => reject(new Error('upload failed'));
-    xhr.onabort = () => reject(new DOMException('aborted', 'AbortError'));
-    xhr.send(payload);
-  });
+/* POST a payload and time it. We deliberately use fetch (not XHR): attaching
+   an `xhr.upload` progress listener flips the request to "non-simple", which
+   forces a CORS preflight OPTIONS that speed.cloudflare.com's /__up does not
+   satisfy — the exact reason uploads came back "unavailable" while the
+   download (a plain GET) worked. A Uint8Array body sets no Content-Type, so
+   this stays a simple cross-origin request like the download. fetch exposes
+   no upload progress, so the gauge is animated optimistically meanwhile. */
+async function cfUpload(signal, onTick) {
+  const size = 5e6;
+  const payload = new Uint8Array(size);
+  const t0 = performance.now();
+
+  // Optimistic gauge motion while the POST is in flight (eases toward a soft
+  // cap; the real measured value replaces it the moment the request settles).
+  const ticker = setInterval(() => {
+    const el = (performance.now() - t0) / 1000;
+    onTick(8 + easeOutCubic(clamp(el / 4, 0, 1)) * 60, clamp(el / 4, 0, 0.95));
+  }, 150);
+
+  try {
+    await fetch(`${CF}/__up?r=${Date.now()}`, { method: 'POST', body: payload, signal, cache: 'no-store' });
+  } finally {
+    clearInterval(ticker);
+  }
+  const el = (performance.now() - t0) / 1000;
+  if (!(el > 0)) throw new Error('upload too fast to time');
+  return (size * 8 / 1e6) / el;
 }
 
 function setActiveTile(which) {
