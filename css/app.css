@@ -1,0 +1,26 @@
+/* WiFiMap — app styles (extracted from index.html) */
+    html { scroll-behavior: smooth; }
+    body { -webkit-tap-highlight-color: transparent; }
+    .map-surface { touch-action: manipulation; cursor: crosshair; }
+    .map-surface.locked { cursor: not-allowed; }
+    .pin-marker { cursor: pointer; }
+
+    /* Certificate watermark */
+    .watermark { position: absolute; inset: -10%; display: flex; flex-wrap: wrap; align-content: space-around; justify-content: space-around; gap: 3rem; transform: rotate(-24deg) scale(1.25); pointer-events: none; overflow: hidden; z-index: 30; }
+    .watermark span { font-weight: 800; font-size: 2rem; letter-spacing: .2em; color: rgba(2, 6, 23, .08); white-space: nowrap; user-select: none; }
+
+    /* Modal transitions */
+    .modal-backdrop { backdrop-filter: blur(6px); }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    @media print {
+      body { background: #fff !important; }
+      body * { visibility: hidden; }
+      #certificate-card, #certificate-card * { visibility: visible; }
+      #certificate-card { position: absolute; left: 0; top: 0; width: 100%; margin: 0; box-shadow: none !important; border-radius: 0 !important; }
+      #certificate-card .watermark { display: none; }
+      .no-print { display: none !important; }
+    }

@@ -1,7 +1,7 @@
 {
-  "name": "WiFiMap — Certified Airbnb Wi-Fi Signal Mapper",
+  "name": "WiFiMap — Wi-Fi Signal Mapper & Speed Certifier",
   "short_name": "WiFiMap",
-  "description": "Map your Wi-Fi. Certify your Speed. Attract Digital Nomads. Generate a visual Wi-Fi quality certificate for your listing.",
+  "description": "Map your Wi-Fi, find the dead zones, and certify your speed. Test every room and generate a shareable Wi-Fi quality certificate — for any home, office, café or rental.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

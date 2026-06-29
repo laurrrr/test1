@@ -1,11 +1,26 @@
 /* WiFiMap service worker — app-shell caching for offline use. */
-const CACHE = 'wifimap-v4';
+const CACHE = 'wifimap-v5';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
   './icon-maskable.svg',
+  './css/app.css',
+  './js/tailwind-config.js',
+  './js/state.js',
+  './js/storage.js',
+  './js/views.js',
+  './js/wifi.js',
+  './js/plans.js',
+  './js/builder.js',
+  './js/mapping.js',
+  './js/speedtest.js',
+  './js/pins.js',
+  './js/certificate.js',
+  './js/checkout.js',
+  './js/admin.js',
+  './js/main.js',
 ];
 
 self.addEventListener('install', (event) => {

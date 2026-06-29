@@ -45,6 +45,7 @@ dependencies {
 tasks.register('copyWebAssets', Copy) {
     from(rootDir.parentFile) {
         include 'index.html', 'manifest.webmanifest', 'sw.js', 'icon.svg', 'icon-maskable.svg'
+        include 'css/**', 'js/**'
     }
     into layout.projectDirectory.dir('src/main/assets/www')
 }

@@ -1,10 +1,12 @@
-# WiFiMap — Certified Airbnb Wi-Fi Signal Mapper
+# WiFiMap — Wi-Fi Signal Mapper & Speed Certifier
 
-**Map your Wi-Fi. Certify your Speed. Attract Digital Nomads.**
+**Map your Wi-Fi. Certify your Speed. Kill the dead zones.**
 
-WiFiMap is a single-page Progressive Web App that helps Airbnb hosts and
-co-working space owners map, certify, and monetize their internet speed by
-generating a visual Wi-Fi Quality Certificate for their listings.
+WiFiMap is a single-page Progressive Web App for **anyone** who wants to map
+their Wi-Fi coverage, find the dead zones, and prove their speed — renters
+checking a new place, remote workers and gamers hunting lag, students,
+café and office owners, and short-term-rental hosts alike. Walk the space,
+test each room, and generate a shareable Wi-Fi Quality Certificate.
 
 > **Live mode** (default) measures your real connection through Cloudflare's
 > public speed-test endpoints (`speed.cloudflare.com`). A **demo mode**
@@ -92,6 +94,35 @@ assets, so the web app remains the single source of truth.
 - [Tailwind CSS](https://tailwindcss.com) (CDN)
 - [Lucide Icons](https://lucide.dev) (CDN)
 - Web App Manifest + Service Worker
+
+## Project structure
+
+The web app has no build step. `index.html` holds only the markup; styles
+and behavior live in separate files, loaded as plain classic scripts in
+dependency order:
+
+```
+index.html              markup + <script>/<link> references
+css/app.css             custom styles (watermark, print, scrollbars)
+js/tailwind-config.js   Tailwind Play CDN theme config
+js/state.js             constants, shared state, generic utilities
+js/storage.js           localStorage persistence + session resume
+js/views.js             view switching, home nav, modal open/close
+js/wifi.js              signal model, native bridge, scan-detail rendering
+js/plans.js             floor-plan template, demo data, upload/template start
+js/builder.js           map creator (draw rooms, place router)
+js/mapping.js           coverage map: plan, pins, room list, toolbar
+js/speedtest.js         live Cloudflare measurement + simulated animation
+js/pins.js              pin detail modal (inspect / re-test / delete)
+js/certificate.js       certificate generation, star rating, render
+js/checkout.js          simulated paywall checkout
+js/admin.js             admin panel (passcode gate, paywall bypass)
+js/main.js              event wiring, PWA install, service worker, init
+```
+
+> The functions are shared via the global scope (classic scripts), so load
+> order matters — `js/main.js` runs last. The native Android/iOS shells bundle
+> the same files, so keep the web app as the single source of truth.
 
 ## Running locally
 
