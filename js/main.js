@@ -27,6 +27,8 @@ $('ssid-input').addEventListener('input', (e) => {
   state.ssid = e.target.value.trim() || 'Home Wi-Fi';
   persist();
 });
+// Remember the network name for autocomplete once the user commits it.
+$('ssid-input').addEventListener('change', (e) => addSsidToHistory(e.target.value));
 
 $('property-name').addEventListener('input', (e) => {
   state.propertyName = e.target.value;
@@ -85,6 +87,7 @@ if (!IS_NATIVE && 'serviceWorker' in navigator && location.protocol.startsWith('
 
 // Init
 checkResumeBanner();
+renderSsidDatalist();
 if (IS_NATIVE) toast('Native Android mode — collecting real Wi-Fi radio data');
 updateAdminChip();
 if (location.hash === '#admin') showAdmin();

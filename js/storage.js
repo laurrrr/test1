@@ -34,3 +34,25 @@ function discardSession() {
   $('resume-banner').classList.add('hidden');
   toast('Saved session discarded');
 }
+
+/* ---------- network-name (SSID) autocomplete history ---------- */
+const SSID_KEY = 'wifimap-ssid-history';
+
+function loadSsidHistory() {
+  try { const a = JSON.parse(localStorage.getItem(SSID_KEY)); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+
+function addSsidToHistory(name) {
+  name = (name || '').trim();
+  if (!name) return;
+  let a = loadSsidHistory().filter(n => n.toLowerCase() !== name.toLowerCase());
+  a.unshift(name);
+  try { localStorage.setItem(SSID_KEY, JSON.stringify(a.slice(0, 8))); } catch (e) { /* non-fatal */ }
+  renderSsidDatalist();
+}
+
+function renderSsidDatalist() {
+  const dl = $('ssid-history');
+  if (dl) dl.innerHTML = loadSsidHistory().map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+}

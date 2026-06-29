@@ -272,10 +272,13 @@ function finishTest(target) {
       freq: native.frequencyMhz > 0 ? native.frequencyMhz : undefined,
       radioReal: true,
     };
-    if (native.ssid && native.ssid !== state.ssid) {
-      state.ssid = native.ssid;
-      const si = $('ssid-input');
-      if (si) si.value = native.ssid;
+    if (native.ssid) {
+      addSsidToHistory(native.ssid);
+      if (native.ssid !== state.ssid) {
+        state.ssid = native.ssid;
+        const si = $('ssid-input');
+        if (si) si.value = native.ssid;
+      }
     }
   } else {
     if (native && native.failed) {
@@ -295,7 +298,10 @@ function finishTest(target) {
     if (cfMeta.colo) extras.server = `Cloudflare ${cfMeta.colo}`;
   }
   Object.assign(currentTest, target, extras, { done: true });
-  $('st-details').innerHTML = scanDetailsHtml(currentTest);
+  // The initial test shows only ping / download / upload. Full Wi-Fi details
+  // (jitter, signal, band, channel, width, …) are captured on the pin but
+  // stay hidden here — they unlock once the certificate is generated.
+  $('st-details').innerHTML = '';
   $('m-ping').textContent = target.ping;
   $('m-down').textContent = target.down;
   $('m-up').textContent = target.up == null ? '—' : target.up;

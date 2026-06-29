@@ -35,13 +35,15 @@ test each room, and generate a shareable Wi-Fi Quality Certificate.
   - 🟢 **Green** — 100+ Mbps (excellent for 4K streaming / remote work)
   - 🟡 **Yellow** — 30–99 Mbps (good for general use)
   - 🔴 **Red** — under 30 Mbps (poor connection)
-- **Per-scan details** — every test records jitter (from real latency
-  samples in live mode), modeled Wi-Fi radio data (signal strength in dBm,
-  band, channel, channel width, security — browsers can't read real radio
-  info, so these are marked *est.* on live scans), the browser's Network
-  Information link data, and in live mode your ISP and the Cloudflare edge
-  that served the test. Details appear in the scan result, in pin details,
-  and signal/band/channel per room on the certificate.
+- **Per-scan details** — the initial test shows only **ping, download and
+  upload**. The richer diagnostics (jitter, signal strength in dBm, band,
+  channel, channel width, security, link speed, ISP, test server, …) are
+  captured on each pin but **unlock once you generate the certificate** —
+  then they appear in the pin inspector and as signal/band/channel per room
+  on the certificate. Browser scans mark radio fields *est.* (browsers can't
+  read real radio data); the native apps report them for real.
+- **Network-name autocomplete** — the SSID field suggests networks you’ve
+  used before (kept in `localStorage`); the native apps prefill the real one.
 - **Pin management** — name each location (Living Room, Workspace, …),
   inspect, re-test, or delete pins from the map or the sidebar list.
 - **Wi-Fi Quality Certificate** — unlocked after 3+ pins. Locks editing and

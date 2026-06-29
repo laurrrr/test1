@@ -13,6 +13,7 @@ function starsFor(avgDown) {
 
 function generateCertificate() {
   if (state.pins.length < 3) return;
+  addSsidToHistory(state.ssid);
   state.locked = true;
   state.certDate = state.certDate || new Date().toISOString();
   state.certId = state.certId || ('WFM-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase());

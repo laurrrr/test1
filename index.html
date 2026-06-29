@@ -205,9 +205,10 @@
           </p>
           <div class="mt-4">
             <label class="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Network name (SSID)</label>
-            <input id="ssid-input" type="text" placeholder="Home Wi-Fi"
+            <input id="ssid-input" type="text" placeholder="Home Wi-Fi" list="ssid-history" autocomplete="on"
               class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold outline-none focus:border-cyan-500" />
-            <p class="mt-1 text-[10px] text-slate-600">Shown in scan details and on the certificate.</p>
+            <datalist id="ssid-history"></datalist>
+            <p class="mt-1 text-[10px] text-slate-600">Autocompletes from networks you’ve used. Shown on the certificate.</p>
           </div>
           <div class="mt-4 rounded-xl bg-slate-950/70 p-3 text-xs text-slate-400">
             <p class="flex items-center gap-1.5 font-semibold text-slate-300"><i data-lucide="lightbulb" class="h-3.5 w-3.5 text-amber-400"></i> Pro tip</p>

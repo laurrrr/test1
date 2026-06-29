@@ -8,6 +8,7 @@ function showMapping() {
   updateToolbar();
   updateTestModeBtn();
   $('ssid-input').value = state.ssid || '';
+  renderSsidDatalist();
 }
 
 function toggleTestMode() {
