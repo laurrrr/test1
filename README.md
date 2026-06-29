@@ -19,14 +19,18 @@ test each room, and generate a shareable Wi-Fi Quality Certificate.
   image (with preview), use a built-in 3-room apartment template (SVG
   blueprint, instantly usable with sample demo data), or draw your own plan.
 - **Map creator** — sketch your floor plan directly in the app: drag to draw
-  grid-snapped rooms, name them, place the router (simulated speeds decay
-  with distance from it), with undo/clear. Touch-friendly.
+  grid-snapped rooms, name them, and add **one or more routers / access
+  points** (place several to model a mesh — simulated speed decays with
+  distance from the *nearest* AP), with undo/clear. Touch-friendly.
 - **Interactive mapping canvas** — tap/click anywhere on the floor plan to
   drop a pin and run a speed test (ping, download, upload with a live
   animated gauge). **Live mode** measures your actual connection via
   Cloudflare (latency = median of timed requests; download = streamed
-  payloads up to 50 MB over a ~5 s budget; upload = timed 5 MB POST).
-  **Demo mode** simulates speeds that decay with distance from the router.
+  payloads up to 50 MB over a ~5 s budget; upload = timed 5 MB POST). If the
+  upload step is blocked it’s skipped and the download/ping are still saved;
+  if the whole test can’t reach Cloudflare it falls back to demo with the
+  reason shown. **Demo mode** simulates speeds that decay with distance from
+  the nearest router.
   Pins and their signal halo are color-coded:
   - 🟢 **Green** — 100+ Mbps (excellent for 4K streaming / remote work)
   - 🟡 **Yellow** — 30–99 Mbps (good for general use)

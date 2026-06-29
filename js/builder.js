@@ -1,24 +1,26 @@
 /* WiFiMap — Map creator: draw rooms, place router, build a custom plan. */
 
 /* ---------- map creator (builder) ---------- */
-const builder = { rooms: [], router: null, tool: 'room', drag: null, pendingRoom: null };
+const builder = { rooms: [], routers: [], tool: 'room', drag: null, pendingRoom: null };
 
-/* Blueprint-style SVG for custom plans (viewBox 800x560). `extra` lets the
-   builder overlay its in-progress drag rectangle. */
-function buildPlanSvg(rooms, router, extra = '') {
+/* Blueprint-style SVG for custom plans (viewBox 800x560). `routers` is an
+   array of access points (a single object is tolerated for older callers).
+   `extra` lets the builder overlay its in-progress drag rectangle. */
+function buildPlanSvg(rooms, routers, extra = '') {
+  const list = Array.isArray(routers) ? routers : (routers ? [routers] : []);
   const roomsSvg = (rooms || []).map(r => `
     <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2" fill="rgba(103,183,232,.05)" stroke="#67b7e8" stroke-width="4"/>
     <text x="${r.x + r.w / 2}" y="${r.y + r.h / 2 + 6}" text-anchor="middle" fill="#7da8c9" font-size="16" font-weight="700" letter-spacing="2" font-family="ui-sans-serif,system-ui">${escapeHtml(r.name.toUpperCase())}</text>`).join('');
-  const routerSvg = router ? `
-    <g transform="translate(${router.x} ${router.y})">
+  const routerSvg = list.map((rt, i) => `
+    <g transform="translate(${rt.x} ${rt.y})">
       <circle r="11" fill="#22d3ee"/>
       <circle r="11" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".45">
         <animate attributeName="r" values="11;24" dur="1.8s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values=".45;0" dur="1.8s" repeatCount="indefinite"/>
       </circle>
       <path d="M-5 1 a7 7 0 0 1 10 0 M-2 4 a3 3 0 0 1 4 0" stroke="#06303d" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <text y="32" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700" font-family="ui-sans-serif,system-ui">ROUTER</text>
-    </g>` : '';
+      <text y="32" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700" font-family="ui-sans-serif,system-ui">${list.length > 1 ? 'AP ' + (i + 1) : 'ROUTER'}</text>
+    </g>`).join('');
   return `
 <svg viewBox="0 0 800 560" class="block h-auto w-full" role="img" aria-label="Custom floor plan">
   <defs>
@@ -35,7 +37,7 @@ function buildPlanSvg(rooms, router, extra = '') {
 
 function openBuilder() {
   builder.rooms = [];
-  builder.router = null;
+  builder.routers = [];
   builder.drag = null;
   builder.pendingRoom = null;
   showView('builder');
@@ -50,7 +52,9 @@ function setBuilderTool(tool) {
       ? 'border-violet-500 bg-violet-500/15 text-violet-300'
       : 'border-slate-700 text-slate-400 hover:border-slate-500'}`;
   }
-  $('builder-hint').textContent = tool === 'room' ? 'Drag diagonally to draw a room' : 'Tap to place the router';
+  $('builder-hint').textContent = tool === 'room'
+    ? 'Drag diagonally to draw a room'
+    : 'Tap to add an access point — place several for a mesh';
   renderBuilder();
 }
 
@@ -72,9 +76,9 @@ function renderBuilder() {
   if (builder.rooms.length === 0 && !builder.drag) {
     extra += `<text x="400" y="285" text-anchor="middle" fill="#33536f" font-size="20" font-weight="700" font-family="ui-sans-serif,system-ui">DRAG TO DRAW YOUR FIRST ROOM</text>`;
   }
-  $('builder-canvas').innerHTML = buildPlanSvg(builder.rooms, builder.router, extra);
-  const n = builder.rooms.length;
-  $('builder-counter').textContent = `${n} room${n === 1 ? '' : 's'}`;
+  $('builder-canvas').innerHTML = buildPlanSvg(builder.rooms, builder.routers, extra);
+  const n = builder.rooms.length, a = builder.routers.length;
+  $('builder-counter').textContent = `${n} room${n === 1 ? '' : 's'} · ${a} AP${a === 1 ? '' : 's'}`;
   $('btn-use-plan').disabled = n < 1;
 }
 
@@ -83,9 +87,9 @@ function onBuilderDown(e) {
   e.preventDefault();
   const p = builderCoords(e);
   if (builder.tool === 'router') {
-    builder.router = p;
+    builder.routers.push(p);
     renderBuilder();
-    toast('Router placed');
+    toast(`Access point ${builder.routers.length} added`);
     return;
   }
   builder.drag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
@@ -133,26 +137,33 @@ function cancelRoomName() {
 }
 
 function builderUndo() {
-  if (builder.rooms.length) builder.rooms.pop();
-  else if (builder.router) builder.router = null;
+  // Undo the most recent action: last router first, otherwise last room.
+  if (builder.tool === 'router' && builder.routers.length) builder.routers.pop();
+  else if (builder.rooms.length) builder.rooms.pop();
+  else if (builder.routers.length) builder.routers.pop();
   renderBuilder();
 }
 
 function builderClear() {
   builder.rooms = [];
-  builder.router = null;
+  builder.routers = [];
   renderBuilder();
   toast('Canvas cleared');
 }
 
 function useBuilderPlan() {
   if (builder.rooms.length < 1) return;
-  state.plan = { type: 'custom', rooms: builder.rooms.map(r => ({ ...r })), router: builder.router ? { ...builder.router } : null };
+  state.plan = {
+    type: 'custom',
+    rooms: builder.rooms.map(r => ({ ...r })),
+    routers: builder.routers.map(r => ({ ...r })),
+  };
   state.pins = [];
   state.locked = false;
   state.paid = false;
   state.certDate = null;
   state.certId = null;
   showMapping();
-  toast(builder.router ? 'Custom plan ready — tap a room to test' : 'Custom plan ready (no router placed — assuming center)');
+  const a = builder.routers.length;
+  toast(a ? `Custom plan ready — ${a} access point${a === 1 ? '' : 's'} placed` : 'Custom plan ready (no AP placed — assuming center)');
 }

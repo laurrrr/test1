@@ -29,7 +29,7 @@ function updateTestModeBtn() {
 function planMarkup() {
   if (!state.plan) return '';
   if (state.plan.type === 'template') return TEMPLATE_SVG;
-  if (state.plan.type === 'custom') return buildPlanSvg(state.plan.rooms, state.plan.router);
+  if (state.plan.type === 'custom') return buildPlanSvg(state.plan.rooms, planRouters(state.plan));
   return `<img src="${state.plan.src}" alt="Floor plan" class="block h-auto w-full" draggable="false" />`;
 }
 

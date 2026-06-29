@@ -35,7 +35,12 @@ function unlockEditing() {
 
 function renderCertificate() {
   const pins = state.pins;
-  const avg = (key) => Math.round(pins.reduce((s, p) => s + p[key], 0) / pins.length);
+  // Average only the numeric values so a pin with a missing upload (live
+  // upload step failed) doesn't poison the result with NaN.
+  const avg = (key) => {
+    const vals = pins.map(p => p[key]).filter(v => Number.isFinite(v));
+    return vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+  };
   const avgDown = avg('down'), avgUp = avg('up'), avgPing = avg('ping');
 
   $('cert-property').textContent = state.propertyName || 'My Wi-Fi';
@@ -43,9 +48,9 @@ function renderCertificate() {
   $('cert-ssid').textContent = state.ssid || 'Home Wi-Fi';
   $('cert-id').textContent = state.certId;
   $('cert-id-footer').textContent = state.certId + ' · wifimap.app/verify';
-  $('cert-avg-down').textContent = avgDown;
-  $('cert-avg-up').textContent = avgUp;
-  $('cert-avg-ping').textContent = avgPing;
+  $('cert-avg-down').textContent = avgDown == null ? '—' : avgDown;
+  $('cert-avg-up').textContent = avgUp == null ? '—' : avgUp;
+  $('cert-avg-ping').textContent = avgPing == null ? '—' : avgPing;
 
   const allLive = pins.length > 0 && pins.every(p => p.source === 'live');
   const allNative = pins.length > 0 && pins.every(p => p.radioReal);
@@ -81,7 +86,7 @@ function renderCertificate() {
         <td class="py-2.5 pr-2 font-semibold">${escapeHtml(p.room)}</td>
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.ping} ms</td>
         <td class="py-2.5 pr-2 text-right font-bold tabular-nums">${p.down} Mbps</td>
-        <td class="py-2.5 pr-2 text-right tabular-nums">${p.up} Mbps</td>
+        <td class="py-2.5 pr-2 text-right tabular-nums">${p.up == null ? '—' : p.up + ' Mbps'}</td>
         <td class="py-2.5 pr-2 text-right tabular-nums">${p.rssi != null ? `${p.rssi} dBm` : '—'}${p.band ? `<span class="block text-[10px] text-slate-400">${p.band} · ch ${p.channel}</span>` : ''}</td>
         <td class="py-2.5 text-right"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold ${c.chip}">${c.name}</span></td>
       </tr>`;

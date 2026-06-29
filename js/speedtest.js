@@ -38,6 +38,7 @@ function openSpeedtest(x, y, replaceId) {
 /* ---------- live measurement via Cloudflare (speed.cloudflare.com) ---------- */
 const CF = 'https://speed.cloudflare.com';
 let liveAbort = null;
+let liveTimedOut = false;   // distinguishes a watchdog abort from the user closing the modal
 
 function setProgress(pct) { $('st-progress').style.width = clamp(pct, 0, 100) + '%'; }
 
@@ -50,17 +51,28 @@ function liveTick(key, value, max) {
 
 async function startLiveTest(x, y) {
   liveAbort = new AbortController();
+  liveTimedOut = false;
   const signal = liveAbort.signal;
-  const metaPromise = fetchMeta(signal);
+  // Watchdog: never hang forever — abort the whole test after 22s.
+  const watchdog = setTimeout(() => { liveTimedOut = true; liveAbort.abort(); }, 22000);
+  const metaPromise = fetchMeta(signal);   // best-effort; never throws (see fetchMeta)
   try {
+    // --- latency (essential; one retry before giving up) ---
     setActiveTile('ping');
     $('st-status').textContent = 'Measuring latency (Cloudflare)…';
     $('gauge-unit').textContent = 'ms';
     setProgress(5);
-    const { ping, jitter } = await cfLatency(signal, v => liveTick('ping', v, 100));
-    liveTick('ping', ping, 100);
+    let lat;
+    try {
+      lat = await cfLatency(signal, v => liveTick('ping', v, 100));
+    } catch (e) {
+      if (signal.aborted) throw e;
+      lat = await cfLatency(signal, v => liveTick('ping', v, 100));   // single retry
+    }
+    liveTick('ping', lat.ping, 100);
     setProgress(15);
 
+    // --- download (essential) ---
     setActiveTile('down');
     $('st-status').textContent = 'Testing download (Cloudflare)…';
     $('gauge-unit').textContent = 'Mbps';
@@ -71,18 +83,33 @@ async function startLiveTest(x, y) {
     $('m-down').textContent = down;
     setProgress(70);
 
-    setActiveTile('up');
-    $('st-status').textContent = 'Testing upload (Cloudflare)…';
-    const up = Math.max(1, Math.round(await cfUpload(signal, (v, frac) => {
-      liveTick('up', v, 150);
-      setProgress(70 + frac * 30);
-    })));
+    // --- upload (optional: a failure here must NOT discard a good download) ---
+    let up = null;
+    try {
+      setActiveTile('up');
+      $('st-status').textContent = 'Testing upload (Cloudflare)…';
+      up = Math.max(1, Math.round(await cfUpload(signal, (v, frac) => {
+        liveTick('up', v, 150);
+        setProgress(70 + frac * 30);
+      })));
+    } catch (e) {
+      if (signal.aborted) throw e;   // user closed / watchdog — bail to outer catch
+      console.warn('WiFiMap: upload step failed —', e);
+      $('m-up').textContent = '—';
+      toast('Upload step unavailable — saved download & ping');
+    }
 
     await metaPromise;
-    finishTest({ ping, down, up, jitter });
+    clearTimeout(watchdog);
+    finishTest({ ping: lat.ping, down, up, jitter: lat.jitter });
   } catch (err) {
-    if (signal.aborted || !currentTest) return;  // user closed the modal
-    toast('Live test unavailable — falling back to simulation');
+    clearTimeout(watchdog);
+    if (signal.aborted && !liveTimedOut) return;   // user closed the modal mid-test
+    const reason = liveTimedOut ? 'timed out' : ((err && err.message) || 'network blocked');
+    console.warn('WiFiMap: live test failed —', err,
+      '\nIf this persists, check that speed.cloudflare.com is reachable (corporate proxy, VPN, ad-blocker or offline can block it).');
+    toast('Live test unavailable (' + reason + ') — using simulation');
+    if (!currentTest) return;
     currentTest.source = 'sim';
     runTestAnimation(signalAt(x, y));
   } finally {
@@ -264,7 +291,7 @@ function finishTest(target) {
   $('st-details').innerHTML = scanDetailsHtml(currentTest);
   $('m-ping').textContent = target.ping;
   $('m-down').textContent = target.down;
-  $('m-up').textContent = target.up;
+  $('m-up').textContent = target.up == null ? '—' : target.up;
   $('gauge-value').textContent = target.down;
   $('gauge-unit').textContent = 'Mbps';
   $('gauge-arc').style.strokeDashoffset = GAUGE_LEN * (1 - clamp(target.down / 240, 0, 1));

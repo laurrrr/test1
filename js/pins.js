@@ -9,7 +9,7 @@ function openPinModal(id) {
   $('pd-room').textContent = pin.room;
   $('pd-ping').textContent = pin.ping;
   $('pd-down').textContent = pin.down;
-  $('pd-up').textContent = pin.up;
+  $('pd-up').textContent = pin.up == null ? '—' : pin.up;
   const q = $('pd-quality');
   q.className = `mt-3 rounded-xl border px-4 py-2 text-center text-sm font-bold ${c.cls}`;
   q.textContent = c.desc;

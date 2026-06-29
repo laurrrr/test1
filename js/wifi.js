@@ -1,16 +1,33 @@
 /* WiFiMap — Signal model, native Wi-Fi bridge, per-scan detail rendering. */
 
-/* Simulated signal model: speed decays with distance from the router. */
-function routerPos() {
-  if (state.plan && state.plan.type === 'custom' && state.plan.router) {
-    return { x: state.plan.router.x / 8, y: state.plan.router.y / 5.6 };  // viewBox 800x560 → percent
-  }
-  return { x: 48.75, y: 44.6 };
+/* Routers/access points for a plan, in viewBox (800x560) coordinates.
+   Supports multiple APs; tolerates the legacy single-`router` shape. */
+function planRouters(plan) {
+  if (!plan) return [];
+  if (Array.isArray(plan.routers)) return plan.routers;
+  if (plan.router) return [plan.router];   // legacy saved sessions
+  return [];
 }
 
+/* Router positions as map percentages. Custom plans use their placed APs;
+   every other plan assumes a single central router. */
+function routerPositions() {
+  if (state.plan && state.plan.type === 'custom') {
+    const rs = planRouters(state.plan);
+    if (rs.length) return rs.map(r => ({ x: r.x / 8, y: r.y / 5.6 }));  // viewBox → percent
+  }
+  return [{ x: 48.75, y: 44.6 }];
+}
+
+/* Distance to the nearest access point — a phone associates with whichever
+   AP is strongest, so coverage is driven by the closest one (mesh/multi-AP). */
+function nearestRouterDist(x, y) {
+  return Math.min(...routerPositions().map(r => Math.hypot(x - r.x, y - r.y)));
+}
+
+/* Simulated signal model: speed decays with distance from the nearest router. */
 function signalAt(x, y) {
-  const r = routerPos();
-  const d = Math.hypot(x - r.x, y - r.y);
+  const d = nearestRouterDist(x, y);
   const down = clamp(Math.round(235 - 2.9 * d + rand(-18, 18)), 8, 240);
   const up = clamp(Math.round(down * rand(0.38, 0.5)), 3, 120);
   const ping = Math.round(6 + 0.45 * d + rand(0, 6));
@@ -27,8 +44,7 @@ function apChannels() {
 /* Wi-Fi radio details modeled from distance to the router. Browsers cannot
    read the real SSID/channel/RSSI, so these are estimates even in live mode. */
 function radioDetailsAt(x, y) {
-  const r = routerPos();
-  const d = Math.hypot(x - r.x, y - r.y);
+  const d = nearestRouterDist(x, y);
   const rssi = Math.round(clamp(-32 - d * 0.62 - rand(0, 4), -92, -30));
   const band = rssi > -65 ? '5 GHz' : '2.4 GHz';
   const ch = apChannels();
